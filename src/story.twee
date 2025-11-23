@@ -1,0 +1,26 @@
+:: StoryData
+{"ifid":"AF9981AF-6335-4353-9AB8-430922AC076F","format":"SugarCube","format-version":"2.37.3","start":"시작페이지"}
+
+:: StoryTitle
+제목들어갈곳
+
+:: Story JavaScript
+(function(){
+  function isEditable(el){if(!el)return false;var t=el.tagName;return t==="INPUT"||t==="TEXTAREA"||t==="SELECT"||el.isContentEditable===true}
+  function initSteps(root){var steps=(root||document).querySelectorAll(".enter-step:not([data-enter-init])");steps.forEach(function(el){if(!el.hasAttribute("data-show")){el.style.display="none"}el.setAttribute("data-enter-init","1")})}
+  function showNext(root){var step=(root||document).querySelector(".enter-step:not([data-enter-shown])");if(step){step.setAttribute("data-enter-shown","1");step.style.display=""}}
+  function keyHandler(ev){if(isEditable(ev.target))return;var k=ev.key;if(k===" "||k==="Enter"||k==="ArrowRight"){ev.preventDefault();showNext(document)}}
+  $(document).on(":passagerender",function(ev){initSteps(ev.content);document.addEventListener("keydown",keyHandler,{once:false})})
+})();
+
+:: Story Stylesheet
+@import 'https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap';
+body{font-family:'Nanum Myeongjo',serif;font-size:20px;color:#fff;background:#000000}
+#ui-bar{display:none}
+a.link-internal,a.link-external{color:yellow}
+
+:: 시작페이지
+<<set $visitIndex = 0>><<set $visitOrder = {}>>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;text-align:center">
+  <div style="font-size:2.2em;line-height:1.2;letter-spacing:.02em">대충 제목</div>
+</div>
