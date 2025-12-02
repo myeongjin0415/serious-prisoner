@@ -1,0 +1,74 @@
+:: StoryTitle
+Your Game Title
+
+:: StoryData
+{
+  "ifid": "8F92C1E7-4D3B-4A6F-B917-2C8F5B90D4EA",
+  "format": "SugarCube",
+  "format-version": "2.36.1",
+  "start": "Start",
+  "zoom": 1
+}
+
+:: Start [nobr nopage]
+<div class="title-screen">
+  <div class="title-screen-card">
+    <div class="title-screen-header">
+      <h1 class="title-screen-title">YOUR GAME TITLE</h1>
+    </div>
+
+    <div class="title-screen-actions">
+      <<button "Start">>
+        <<run GameState && GameState.initNewRun()>>
+        <<run PageRunner && PageRunner.enterEncounter()>>
+        <<goto "EncounterPage">>
+      <</button>>
+
+      <<button "Save / Load">>
+        <<run SugarCube && SugarCube.UI && SugarCube.UI.saves && SugarCube.UI.saves()>>
+      <</button>>
+    </div>
+  </div>
+</div>
+
+:: EncounterPage
+<<run PageRunner && PageRunner.refreshUI()>>
+<<if !$uiPage>>
+<div class="encounter-page">
+  <div class="encounter-page-inner">
+    <div class="narration">
+      No page data.
+    </div>
+  </div>
+</div>
+<<else>>
+<div class="encounter-page">
+  <div class="encounter-page-inner">
+    <div class="narration">
+      <<= $uiPage.narration>>
+    </div>
+  </div>
+
+  <div class="encounter-page-divider"></div>
+
+  <div class="choices">
+    <<for _i = 0; _i < $uiPage.options.length; _i++>>
+      <<set _opt = $uiPage.options[_i]>>
+      <<if _opt.available>>
+        <div class="choice">
+          <<link _opt.label>><span class="choice-link">
+            <<= _opt.label>>
+          </span>
+            <<run PageRunner.chooseOption(_opt.index)>>
+            <<goto "EncounterPage">>
+          <</link>>
+        </div>
+      <<else>>
+        <div class="choice choice-locked">
+          <<= _opt.label>>
+        </div>
+      <</if>>
+    <</for>>
+  </div>
+</div>
+<</if>>

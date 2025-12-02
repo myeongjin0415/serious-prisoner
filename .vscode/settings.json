@@ -1,3 +1,16 @@
 {
-    "twee3LanguageTools.storyformat.current": "sugarcube-2"
+    "twee3LanguageTools.storyformat.current": "sugarcube-2",
+    "twineTweeLanguage.project.downloadStoryFormat": false,
+    "twineTweeLanguage.project.create": false,
+    "twee3LanguageTools.sugarcube-2.error.parameterValidation": false,
+    "twee3LanguageTools.sugarcube-2.error.childrenValidation": false,
+    "twee3LanguageTools.sugarcube-2.error.argumentParsing": false,
+    "twee3LanguageTools.sugarcube-2.features.macroTagMatching": true,
+    "twee3LanguageTools.sugarcube-2.warning.barewordLinkPassageChecking": true,
+    "twee3LanguageTools.experimental.sugarcube-2.selfClosingMacros.warning.irrationalSelfClose": false,
+    "twee3LanguageTools.sugarcube-2.warning.endMacro": false,
+    "twee3LanguageTools.twee-3.error.storyData.format": false,
+    "twee3LanguageTools.twee-3.error.storyData.formatVersion": false,
+    "twee3LanguageTools.twee-3.error.storyData.ifid": false,
+    "twee3LanguageTools.twee-3.warning.spaceAfterStartToken": false
 }
