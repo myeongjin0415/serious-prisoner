@@ -1,5 +1,5 @@
 :: StoryTitle
-Your Game Title
+Prisoner Prototype
 
 :: StoryData
 {
@@ -10,65 +10,394 @@ Your Game Title
   "zoom": 1
 }
 
-:: Start [nobr nopage]
-<div class="title-screen">
-  <div class="title-screen-card">
-    <div class="title-screen-header">
-      <h1 class="title-screen-title">YOUR GAME TITLE</h1>
-    </div>
+:: StoryInit
+<<script>>
+// setup 객체 정의
+setup.timelineStartMinutes = 480;
+setup.formatTime = function(hour, min) {
+  return String(hour).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+};
+setup.timeline = [
+  { minutesFromStart: 0, text: "총성과 함께 기상한다... 침대에서 벗어나 정해진 순서대로 움직인다." },
+  { minutesFromStart: 15, text: "문이 열린다. 간수의 이동 명령에 따라 세면실로 이동한다. 정해진 시간 내에 세면을 마쳐야 한다." },
+  { minutesFromStart: 30, text: "아침 식사 시간. 식당으로 이동하여 배식받은 식사를 먹는다. 대화는 금지되어 있다." },
+  { minutesFromStart: 45, text: "식사 후 식기를 반납하고 복도로 이동한다. 각자의 작업장으로 향한다." },
+  { minutesFromStart: 60, text: "작업 시간 시작. 지정된 작업을 수행한다. 작업량을 채우지 못하면 불이익을 받는다." },
+  { minutesFromStart: 75, text: "작업 중간 점검. 간수가 작업 진행 상황을 확인한다." },
+  { minutesFromStart: 90, text: "계속해서 작업을 수행한다. 집중력을 유지해야 한다." },
+  { minutesFromStart: 105, text: "작업 시간 종료 전 마지막 점검. 완료된 작업물을 제출한다." },
+  { minutesFromStart: 120, text: "작업 시간 종료. 작업장을 정리하고 복도로 이동한다." }
+];
 
-    <div class="title-screen-actions">
-      <<button "Start">>
-        <<run GameState && GameState.initNewRun()>>
-        <<run PageRunner && PageRunner.enterEncounter()>>
-        <<goto "EncounterPage">>
-      <</button>>
+// 시계 업데이트 함수 (최적화: 스크롤 위치 기반 계산)
+window.updateClock = function(timelineCells, timelineContainer) {
+  if (!timelineCells || timelineCells.length === 0 || !timelineContainer) return;
+  
+  const clockElement = document.getElementById('clock-time');
+  if (!clockElement) return;
+  
+  // 스크롤 위치와 뷰포트 높이로 중앙 위치 계산
+  const scrollTop = timelineContainer.scrollTop;
+  const viewportHeight = timelineContainer.clientHeight;
+  const viewportCenter = scrollTop + viewportHeight / 2;
+  
+  // 뷰포트 중앙에 가장 가까운 셀 찾기 (offsetTop 사용으로 성능 향상)
+  let closestCell = null;
+  let minDistance = Infinity;
+  
+  timelineCells.forEach(function(cell) {
+    const cellTop = cell.offsetTop;
+    const cellHeight = cell.offsetHeight;
+    const cellCenter = cellTop + cellHeight / 2;
+    
+    // 셀이 뷰포트 중앙에 가장 가까운지 확인
+    const distance = Math.abs(cellCenter - viewportCenter);
+    
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestCell = cell;
+    }
+  });
+  
+  if (closestCell) {
+    const timeText = closestCell.querySelector('.cell-time');
+    if (timeText) {
+      const newTime = timeText.textContent.trim();
+      // 값이 변경된 경우에만 업데이트 (불필요한 DOM 조작 방지)
+      if (clockElement.textContent !== newTime) {
+        clockElement.textContent = newTime;
+      }
+    }
+  }
+};
 
-      <<button "Save / Load">>
-        <<run SugarCube && SugarCube.UI && SugarCube.UI.saves && SugarCube.UI.saves()>>
-      <</button>>
-    </div>
-  </div>
-</div>
+// 스크롤 이벤트 핸들러 (throttle 적용)
+window.throttle = function(func, wait) {
+  let timeout;
+  return function() {
+    const context = this;
+    const args = arguments;
+    if (!timeout) {
+      timeout = setTimeout(function() {
+        timeout = null;
+        func.apply(context, args);
+      }, wait);
+    }
+  };
+};
 
-:: EncounterPage
-<<run PageRunner && PageRunner.refreshUI()>>
-<<if !$uiPage>>
-<div class="encounter-page">
-  <div class="encounter-page-inner">
-    <div class="narration">
-      No page data.
-    </div>
-  </div>
-</div>
-<<else>>
-<div class="encounter-page">
-  <div class="encounter-page-inner">
-    <div class="narration">
-      <<= $uiPage.narration>>
-    </div>
-  </div>
+// 초기화 함수
+window.initTimeline = function() {
+  const timelineContainer = document.getElementById('timeline');
+  const clockElement = document.getElementById('clock-time');
+  
+  if (!timelineContainer || !clockElement) {
+    setTimeout(window.initTimeline, 100);
+    return;
+  }
+  
+  // 모든 타임라인 셀 가져오기
+  const timelineCells = Array.from(timelineContainer.querySelectorAll('.timeline-cell'));
+  
+  if (timelineCells.length === 0) {
+    setTimeout(window.initTimeline, 100);
+    return;
+  }
+  
+  // 초기 시간 설정 (첫 번째 셀의 시간)
+  const firstCell = timelineCells[0];
+  const firstTime = firstCell.querySelector('.cell-time');
+  if (firstTime) {
+    clockElement.textContent = firstTime.textContent.trim();
+  }
+  
+  // 스크롤 이벤트 핸들러 (throttle로 성능 최적화)
+  const handleScroll = window.throttle(function() {
+    window.updateClock(timelineCells, timelineContainer);
+  }, 100); // 100ms마다 업데이트 (성능 향상)
+  
+  // 자동 스크롤 애니메이션 플래그
+  let isAutoScrolling = false;
+  
+  // 초기 설정: 첫 번째 셀이 화면 아래에서 나타나도록 스크롤 위치 계산
+  // 레이아웃이 완전히 렌더링될 때까지 기다림
+  setTimeout(function() {
+    const containerRect = timelineContainer.getBoundingClientRect();
+    const viewportHeight = containerRect.height;
+    const firstCellTop = firstCell.offsetTop;
+    
+    // 첫 번째 셀이 화면 아래에 보이도록 초기 스크롤 위치 설정
+    let initialScroll = firstCellTop - viewportHeight + 100; // 100px 여유 공간
+    initialScroll = Math.max(0, initialScroll);
+    
+    // 첫 번째 셀이 이미 화면에 보이는 경우 처리
+    if (initialScroll === 0 && firstCellTop < viewportHeight) {
+      initialScroll = firstCellTop - viewportHeight / 2;
+      initialScroll = Math.max(0, initialScroll);
+    }
+    
+    timelineContainer.scrollTop = initialScroll;
+  }, 50);
+  
+  // 약간의 딜레이 후 위에서 아래로 계속 스크롤 시작
+  setTimeout(function() {
+    // 최대 스크롤 가능한 값 계산
+    const maxScroll = timelineContainer.scrollHeight - timelineContainer.clientHeight;
+    
+    // 스크롤할 거리가 충분한지 확인
+    if (maxScroll <= 0) {
+      return;
+    }
+    
+    isAutoScrolling = true;
+    const scrollSpeed = 3000; // 초당 3000픽셀 스크롤
+    const scrollInterval = 16; // 16ms마다 스크롤 업데이트 (약 60fps)
+    const clockUpdateInterval = 100; // 100ms마다 시계 업데이트
+    
+    // 스크롤 업데이트: setInterval 사용
+    const scrollTimer = setInterval(function() {
+      const currentScroll = timelineContainer.scrollTop;
+      const currentMaxScroll = timelineContainer.scrollHeight - timelineContainer.clientHeight;
+      
+      // 스크롤 속도에 따라 위치 증가 (초당 픽셀을 ms당 픽셀로 변환)
+      const newScroll = currentScroll + (scrollSpeed * scrollInterval / 1000);
+      
+      // 최대 스크롤 위치를 넘지 않도록 제한
+      if (newScroll >= currentMaxScroll) {
+        timelineContainer.scrollTop = currentMaxScroll;
+        isAutoScrolling = false;
+        clearInterval(scrollTimer);
+        clearInterval(clockTimer);
+        // 마지막 시계 업데이트
+        window.updateClock(timelineCells, timelineContainer);
+        return;
+      }
+      
+      timelineContainer.scrollTop = newScroll;
+    }, scrollInterval);
+    
+    // 시계 업데이트: 별도의 setInterval 사용
+    const clockTimer = setInterval(function() {
+      if (isAutoScrolling) {
+        window.updateClock(timelineCells, timelineContainer);
+      }
+    }, clockUpdateInterval);
+  }, 600); // 600ms 딜레이
+  
+  // 스크롤 이벤트 리스너 추가
+  timelineContainer.addEventListener('scroll', function() {
+    if (isAutoScrolling) {
+      // 자동 스크롤 중에는 애니메이션 루프에서 업데이트하므로 여기서는 업데이트하지 않음
+      // (중복 호출 방지)
+    } else {
+      handleScroll();
+    }
+  });
+  
+  // 초기 업데이트
+  window.updateClock(timelineCells, timelineContainer);
+};
 
-  <div class="encounter-page-divider"></div>
+// SugarCube가 완전히 로드될 때까지 기다림
+jQuery(document).one(':storyready', function() {
+  setTimeout(window.initTimeline, 100);
+});
 
-  <div class="choices">
-    <<for _i = 0; _i < $uiPage.options.length; _i++>>
-      <<set _opt = $uiPage.options[_i]>>
-      <<if _opt.available>>
-        <div class="choice">
-          <<link _opt.label>><span class="choice-link">
-            <<= _opt.label>>
-          </span>
-            <<run PageRunner.chooseOption(_opt.index)>>
-            <<goto "EncounterPage">>
-          <</link>>
-        </div>
-      <<else>>
-        <div class="choice choice-locked">
-          <<= _opt.label>>
-        </div>
-      <</if>>
+// SugarCube 이벤트 리스너 등록
+jQuery(document).on(':passagedisplay', function() {
+  setTimeout(window.initTimeline, 100);
+});
+
+jQuery(document).on(':passageinit', function() {
+  setTimeout(window.initTimeline, 100);
+});
+<</script>>
+
+:: Story Stylesheet [stylesheet]
+/* 전체 페이지 높이 제한 */
+html, body {
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  background: #323633; /* 검은색 박스 위아래 여백이 보이도록 배경색 추가 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#story {
+  margin: 0 auto;
+}
+
+/* 전체 레이아웃 */
+.proto-layout {
+  display: flex;
+  gap: 24px;
+  height: calc(100vh - 48px); /* 위아래 24px씩 여백 */
+  max-height: calc(100vh - 48px);
+  width: calc(100vw - 48px); /* 좌우 24px씩 여백 */
+  max-width: calc(100vw - 48px);
+  margin: 0;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #05060a;
+  color: #f5f5f5;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+  border-radius: 8px; /* 선택사항: 둥근 모서리 */
+}
+
+.proto-timeline {
+  flex: 2;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 12px;
+  padding-bottom: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  scroll-behavior: smooth;
+  min-height: 0; /* flexbox에서 overflow를 위해 필요 */
+  max-height: 100%;
+}
+
+.proto-clock {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 0; /* flexbox에서 overflow를 위해 필요 */
+  max-height: 100%;
+}
+
+.clock-label {
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.clock-time {
+  font-size: 3.5rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.timeline-cell {
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  min-height: 60px;
+}
+
+.timeline-cell:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.cell-time {
+  width: 64px;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.cell-text {
+  flex: 1;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 스크롤바 */
+.proto-timeline::-webkit-scrollbar {
+  width: 6px;
+}
+
+.proto-timeline::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.proto-timeline::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+/* SugarCube UI 요소 숨기기 */
+#ui-bar,
+#ui-bar-body,
+#menu,
+#menu-core,
+#menu-story,
+#menu-saves,
+#menu-settings,
+#menu-switcher {
+  display: none !important;
+}
+
+#passages {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100vw;
+}
+
+#story {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.passage {
+  height: 100vh;
+  max-height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:: Story JavaScript
+// 이 섹션은 비워둡니다. 모든 JavaScript는 StoryInit에 있습니다.
+
+:: Start
+<<set _timeline = setup.timeline>>
+<<set _startMin = setup.timelineStartMinutes>>
+
+<div class="proto-layout">
+  <div class="proto-timeline" id="timeline">
+    <<for _i = 0; _i < 15; _i++>>
+      <br>
+    <</for>>
+    <<for _i = 0; _i < _timeline.length; _i++>>
+      <<set _item = _timeline[_i]>>
+      <<set _abs = _startMin + _item.minutesFromStart>>
+      <<set _hour = Math.floor(_abs / 60)>>
+      <<set _min = _abs % 60>>
+      <<set _time = setup.formatTime(_hour, _min)>>
+      <div class="timeline-cell" data-time="<<print _time>>" data-minutes="<<print _abs>>">
+        <div class="cell-time"><<print _time>></div>
+        <div class="cell-text"><<print _item.text>></div>
+      </div>
+    <</for>>
+    <<for _i = 0; _i < 15; _i++>>
+      <br>
     <</for>>
   </div>
+
+  <div class="proto-clock">
+    <div class="clock-label">현재 시간</div>
+    <div class="clock-time" id="clock-time">08:00</div>
+  </div>
 </div>
-<</if>>
