@@ -22,12 +22,11 @@ setup.timeline = [
   { minutesFromStart: 15, text: "문이 열린다. 간수의 이동 명령에 따라 세면실로 이동한다. 정해진 시간 내에 세면을 마쳐야 한다." },
   { minutesFromStart: 30, text: "아침 식사 시간. 식당으로 이동하여 배식받은 식사를 먹는다. 대화는 금지되어 있다." },
   { minutesFromStart: 45, text: "식사 후 식기를 반납하고 복도로 이동한다. 각자의 작업장으로 향한다." },
-  { minutesFromStart: 60, text: "작업 시간 시작. 지정된 작업을 수행한다. 작업량을 채우지 못하면 불이익을 받는다." },
-  { minutesFromStart: 75, text: "작업 중간 점검. 간수가 작업 진행 상황을 확인한다." },
-  { minutesFromStart: 90, text: "계속해서 작업을 수행한다. 집중력을 유지해야 한다." },
-  { minutesFromStart: 105, text: "작업 시간 종료 전 마지막 점검. 완료된 작업물을 제출한다." },
-  { minutesFromStart: 120, text: "작업 시간 종료. 작업장을 정리하고 복도로 이동한다." }
+
 ];
+
+// 전역 루프 카운터 (페이지 전체에서 누적)
+window.__timelineLoopCount = window.__timelineLoopCount || 0;
 
 // 시계 업데이트 함수 (최적화: 스크롤 위치 기반 계산)
 window.updateClock = function(timelineCells, timelineContainer) {
@@ -90,6 +89,7 @@ window.throttle = function(func, wait) {
 window.initTimeline = function() {
   const timelineContainer = document.getElementById('timeline');
   const clockElement = document.getElementById('clock-time');
+  const loopCountElement = document.getElementById('clock-loop-count');
   
   if (!timelineContainer || !clockElement) {
     setTimeout(window.initTimeline, 100);
@@ -111,6 +111,11 @@ window.initTimeline = function() {
     clockElement.textContent = firstTime.textContent.trim();
   }
   
+  // 루프 카운터 표시 초기화 (전역 값 사용)
+  if (loopCountElement) {
+    loopCountElement.textContent = '루프: ' + window.__timelineLoopCount;
+  }
+  
   // 스크롤 이벤트 핸들러 (throttle로 성능 최적화)
   const handleScroll = window.throttle(function() {
     window.updateClock(timelineCells, timelineContainer);
@@ -119,23 +124,16 @@ window.initTimeline = function() {
   // 자동 스크롤 애니메이션 플래그
   let isAutoScrolling = false;
   
+  // 초기 스크롤 위치 계산 함수 (루프를 위해 재사용)
+  function calculateInitialScrollPosition() {
+    // 항상 0으로 시작
+    return 0;
+  }
+  
   // 초기 설정: 첫 번째 셀이 화면 아래에서 나타나도록 스크롤 위치 계산
   // 레이아웃이 완전히 렌더링될 때까지 기다림
   setTimeout(function() {
-    const containerRect = timelineContainer.getBoundingClientRect();
-    const viewportHeight = containerRect.height;
-    const firstCellTop = firstCell.offsetTop;
-    
-    // 첫 번째 셀이 화면 아래에 보이도록 초기 스크롤 위치 설정
-    let initialScroll = firstCellTop - viewportHeight + 100; // 100px 여유 공간
-    initialScroll = Math.max(0, initialScroll);
-    
-    // 첫 번째 셀이 이미 화면에 보이는 경우 처리
-    if (initialScroll === 0 && firstCellTop < viewportHeight) {
-      initialScroll = firstCellTop - viewportHeight / 2;
-      initialScroll = Math.max(0, initialScroll);
-    }
-    
+    const initialScroll = calculateInitialScrollPosition();
     timelineContainer.scrollTop = initialScroll;
   }, 50);
   
@@ -150,7 +148,7 @@ window.initTimeline = function() {
     }
     
     isAutoScrolling = true;
-    const scrollSpeed = 3000; // 초당 3000픽셀 스크롤
+    const scrollSpeed = 30; // 초당 3000픽셀 스크롤
     const scrollInterval = 16; // 16ms마다 스크롤 업데이트 (약 60fps)
     const clockUpdateInterval = 100; // 100ms마다 시계 업데이트
     
@@ -158,21 +156,22 @@ window.initTimeline = function() {
     const scrollTimer = setInterval(function() {
       const currentScroll = timelineContainer.scrollTop;
       const currentMaxScroll = timelineContainer.scrollHeight - timelineContainer.clientHeight;
-      
+
       // 스크롤 속도에 따라 위치 증가 (초당 픽셀을 ms당 픽셀로 변환)
       const newScroll = currentScroll + (scrollSpeed * scrollInterval / 1000);
-      
-      // 최대 스크롤 위치를 넘지 않도록 제한
+
+      // 최대 스크롤 위치를 넘으면 루프 1회만 증가시키고 맨 위로 점프 (전역 카운터 사용)
       if (newScroll >= currentMaxScroll) {
-        timelineContainer.scrollTop = currentMaxScroll;
-        isAutoScrolling = false;
-        clearInterval(scrollTimer);
-        clearInterval(clockTimer);
-        // 마지막 시계 업데이트
+        window.__timelineLoopCount++;
+        if (loopCountElement) {
+          loopCountElement.textContent = '루프: ' + window.__timelineLoopCount;
+        }
+        timelineContainer.scrollTop = 0;
         window.updateClock(timelineCells, timelineContainer);
         return;
       }
-      
+
+      // 정상 스크롤 진행
       timelineContainer.scrollTop = newScroll;
     }, scrollInterval);
     
@@ -255,7 +254,8 @@ html, body {
   padding-right: 12px;
   padding-bottom: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
-  scroll-behavior: smooth;
+  /* 자동 스크롤은 JS에서 처리하므로 브라우저의 부드러운 스크롤은 비활성화 */
+  scroll-behavior: auto;
   min-height: 0; /* flexbox에서 overflow를 위해 필요 */
   max-height: 100%;
 }
@@ -282,6 +282,13 @@ html, body {
   font-size: 3.5rem;
   font-weight: 600;
   letter-spacing: 0.08em;
+}
+
+.clock-loop-count {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 8px;
 }
 
 .timeline-cell {
@@ -377,7 +384,7 @@ html, body {
 
 <div class="proto-layout">
   <div class="proto-timeline" id="timeline">
-    <<for _i = 0; _i < 15; _i++>>
+    <<for _i = 0; _i < 10; _i++>>
       <br>
     <</for>>
     <<for _i = 0; _i < _timeline.length; _i++>>
@@ -391,7 +398,7 @@ html, body {
         <div class="cell-text"><<print _item.text>></div>
       </div>
     <</for>>
-    <<for _i = 0; _i < 15; _i++>>
+    <<for _i = 0; _i < 10; _i++>>
       <br>
     <</for>>
   </div>
@@ -399,5 +406,6 @@ html, body {
   <div class="proto-clock">
     <div class="clock-label">현재 시간</div>
     <div class="clock-time" id="clock-time">08:00</div>
+    <div class="clock-loop-count" id="clock-loop-count">루프: 0</div>
   </div>
 </div>
