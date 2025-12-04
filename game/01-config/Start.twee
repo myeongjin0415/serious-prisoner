@@ -18,11 +18,34 @@ setup.formatTime = function(hour, min) {
   return String(hour).padStart(2, '0') + ':' + String(min).padStart(2, '0');
 };
 setup.timeline = [
-  { minutesFromStart: 0, text: "총성과 함께 기상한다... 침대에서 벗어나 정해진 순서대로 움직인다." },
-  { minutesFromStart: 15, text: "문이 열린다. 간수의 이동 명령에 따라 세면실로 이동한다. 정해진 시간 내에 세면을 마쳐야 한다." },
-  { minutesFromStart: 30, text: "아침 식사 시간. 식당으로 이동하여 배식받은 식사를 먹는다. 대화는 금지되어 있다." },
-  { minutesFromStart: 45, text: "식사 후 식기를 반납하고 복도로 이동한다. 각자의 작업장으로 향한다." },
-
+  {
+    minutesFromStart: 0,
+    scripts: [
+      "총성과 함께 기상한다... 침대에서 벗어나 정해진 순서대로 움직인다."
+    ]
+  },
+  {
+    minutesFromStart: 15,
+    scripts: [
+      "문이 열린다. 간수의 이동 명령에 따라 세면실로 이동한다. 정해진 시간 내에 세면을 마쳐야 한다."
+    ]
+  },
+  {
+    minutesFromStart: 30,
+    scripts: [
+      "아침 식사 시간. 식당으로 이동하여 배식받은 식사를 먹는다. [대화:3 -> 1]는 금지되어 있다.",
+      // 스크립트 인덱스 2 (사용 예: [대화:2 -> 2])
+      "아침 식사 시간. 식당으로 이동하여 배식받은 식사를 먹는다. 작은 속삭임이 오가지만, 간수의 눈치를 보며 조심스럽게 말을 섞는다.",
+      "저녁 식사 시간"
+    ]
+  },
+  {
+    minutesFromStart: 45,
+    scripts: [
+      "식사 후 식기를 반납하고 복도로 이동한다. 각자의 작업장으로 향한다.",
+      "저녁 식사 시간"
+    ]
+  }
 ];
 
 // 전역 루프 카운터 (페이지 전체에서 누적)
@@ -115,6 +138,75 @@ window.initTimeline = function() {
   if (loopCountElement) {
     loopCountElement.textContent = '루프: ' + window.__timelineLoopCount;
   }
+
+  // 텍스트 안의 [레이블:타겟인덱스 -> 스크립트인덱스] 패턴을 파싱해 클릭 가능한 링크로 변환
+  function setupTimelineActions() {
+    const actionRegex = /\[([^\[\]:]+):(\d+)\s*->\s*(\d+)\]/g;
+
+    timelineCells.forEach(function(cell, index) {
+      const textEl = cell.querySelector('.cell-text');
+      if (!textEl) return;
+
+      const rawText = textEl.textContent;
+      if (!rawText || rawText.indexOf('[') === -1) return;
+
+      const replaced = rawText.replace(actionRegex, function(_, label, targetIndexStr, scriptIndexStr) {
+        const targetIndex = parseInt(targetIndexStr, 10);
+        const scriptIndex = parseInt(scriptIndexStr, 10);
+        // 데이터 속성으로 타겟 정보 부여
+        return '<span class="timeline-action" data-target-index="' +
+          targetIndex + '" data-script-index="' + scriptIndex + '">' +
+          label + '</span>';
+      });
+
+      if (replaced !== rawText) {
+        textEl.innerHTML = replaced;
+      }
+    });
+
+    // 클릭 핸들러 등록
+    const actions = Array.from(timelineContainer.querySelectorAll('.timeline-action'));
+    actions.forEach(function(actionEl) {
+      actionEl.addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const targetIndex = parseInt(this.getAttribute('data-target-index'), 10);
+        const scriptIndex = parseInt(this.getAttribute('data-script-index'), 10);
+
+        const targetCell = timelineCells[targetIndex];
+        if (!targetCell) {
+          console.warn('타겟 셀을 찾을 수 없습니다:', targetIndex);
+          return;
+        }
+
+        const targetTextEl = targetCell.querySelector('.cell-text');
+        if (!targetTextEl) return;
+
+        // SugarCube의 setup 객체 직접 참조 (window.setup과 동기화 보장)
+        const timeline = (typeof setup !== 'undefined' ? setup : (window.setup || {})).timeline || [];
+        const targetItem = timeline[targetIndex];
+        
+        if (!targetItem) {
+          console.warn('타겟 아이템을 찾을 수 없습니다:', targetIndex, 'timeline length:', timeline.length);
+          return;
+        }
+        
+        if (!Array.isArray(targetItem.scripts)) {
+          console.warn('타겟 아이템에 scripts 배열이 없습니다:', targetIndex, targetItem);
+          return;
+        }
+        
+        if (targetItem.scripts[scriptIndex] === undefined) {
+          console.warn('지정된 스크립트를 찾을 수 없습니다:', targetIndex, scriptIndex, 'available scripts:', targetItem.scripts.length);
+          return;
+        }
+
+        // 해당 셀 텍스트를 선택된 스크립트로 교체
+        targetTextEl.textContent = targetItem.scripts[scriptIndex];
+      });
+    });
+  }
   
   // 스크롤 이벤트 핸들러 (throttle로 성능 최적화)
   const handleScroll = window.throttle(function() {
@@ -148,6 +240,9 @@ window.initTimeline = function() {
     }
     
     isAutoScrolling = true;
+
+    // 셀 텍스트 안의 액션 링크 설정
+    setupTimelineActions();
     const scrollSpeed = 30; // 초당 3000픽셀 스크롤
     const scrollInterval = 16; // 16ms마다 스크롤 업데이트 (약 60fps)
     const clockUpdateInterval = 100; // 100ms마다 시계 업데이트
@@ -291,6 +386,16 @@ html, body {
   margin-top: 8px;
 }
 
+.timeline-action {
+  color: #4da3ff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.timeline-action:hover {
+  color: #82c2ff;
+}
+
 .timeline-cell {
   display: flex;
   gap: 16px;
@@ -393,9 +498,11 @@ html, body {
       <<set _hour = Math.floor(_abs / 60)>>
       <<set _min = _abs % 60>>
       <<set _time = setup.formatTime(_hour, _min)>>
+      <<set _scripts = _item.scripts>>
+      <<set _text = _scripts[0]>>
       <div class="timeline-cell" data-time="<<print _time>>" data-minutes="<<print _abs>>">
         <div class="cell-time"><<print _time>></div>
-        <div class="cell-text"><<print _item.text>></div>
+        <div class="cell-text"><<print _text>></div>
       </div>
     <</for>>
     <<for _i = 0; _i < 10; _i++>>
