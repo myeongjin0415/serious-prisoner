@@ -1,5 +1,5 @@
 :: StoryTitle
-Your Game Title
+Prisoner Prototype
 
 :: StoryData
 {
@@ -10,65 +10,33 @@ Your Game Title
   "zoom": 1
 }
 
-:: Start [nobr nopage]
-<div class="title-screen">
-  <div class="title-screen-card">
-    <div class="title-screen-header">
-      <h1 class="title-screen-title">YOUR GAME TITLE</h1>
-    </div>
+:: Start
+<<set _timeline = setup.timeline>>
 
-    <div class="title-screen-actions">
-      <<button "Start">>
-        <<run GameState && GameState.initNewRun()>>
-        <<run PageRunner && PageRunner.enterEncounter()>>
-        <<goto "EncounterPage">>
-      <</button>>
-
-      <<button "Save / Load">>
-        <<run SugarCube && SugarCube.UI && SugarCube.UI.saves && SugarCube.UI.saves()>>
-      <</button>>
-    </div>
-  </div>
-</div>
-
-:: EncounterPage
-<<run PageRunner && PageRunner.refreshUI()>>
-<<if !$uiPage>>
-<div class="encounter-page">
-  <div class="encounter-page-inner">
-    <div class="narration">
-      No page data.
-    </div>
-  </div>
-</div>
-<<else>>
-<div class="encounter-page">
-  <div class="encounter-page-inner">
-    <div class="narration">
-      <<= $uiPage.narration>>
-    </div>
-  </div>
-
-  <div class="encounter-page-divider"></div>
-
-  <div class="choices">
-    <<for _i = 0; _i < $uiPage.options.length; _i++>>
-      <<set _opt = $uiPage.options[_i]>>
-      <<if _opt.available>>
-        <div class="choice">
-          <<link _opt.label>><span class="choice-link">
-            <<= _opt.label>>
-          </span>
-            <<run PageRunner.chooseOption(_opt.index)>>
-            <<goto "EncounterPage">>
-          <</link>>
-        </div>
-      <<else>>
-        <div class="choice choice-locked">
-          <<= _opt.label>>
-        </div>
-      <</if>>
+<div class="proto-layout">
+  <div class="proto-timeline" id="timeline">
+    <<for _i = 0; _i < 15; _i++>><br><</for>>
+    
+    <<for _i = 0; _i < _timeline.length; _i++>>
+      <<set _item = _timeline[_i]>>
+      <<set _timeStr = setup.formatTime(_item.hour, _item.min)>>
+      
+      <div class="timeline-cell" 
+           @data-time-id="_item.timeId" 
+           @data-minutes="_item.totalMinutes"
+           @data-date-text="_item.dateText">
+           
+        <div class="cell-time"><<print _timeStr>></div>
+        <div class="cell-text"><<print _item.scripts[0]>></div>
+      </div>
     <</for>>
+    
+    <<for _i = 0; _i < 15; _i++>><br><</for>>
+  </div>
+
+  <div class="proto-clock">
+    <div class="clock-date" id="clock-date">12월 2일</div>
+    <div class="clock-time" id="clock-time">08:00</div>
+    <div class="clock-loop-count" id="clock-loop-count">루프: 0</div>
   </div>
 </div>
-<</if>>
