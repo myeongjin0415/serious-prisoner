@@ -1,0 +1,191 @@
+/* 전체 페이지 높이 제한 */
+html, body {
+    height: 100vh;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    background: #323633; /* 검은색 박스 위아래 여백이 보이도록 배경색 추가 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  #story {
+    margin: 0 auto;
+  }
+  
+  /* 전체 레이아웃 */
+  .proto-layout {
+    display: flex;
+    gap: 24px;
+    height: calc(100vh - 48px); /* 위아래 24px씩 여백 */
+    max-height: calc(100vh - 48px);
+    width: calc(100vw - 48px); /* 좌우 24px씩 여백 */
+    max-width: calc(100vw - 48px);
+    margin: 0;
+    padding: 24px;
+    box-sizing: border-box;
+    background: #05060a;
+    color: #f5f5f5;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow: hidden;
+    border-radius: 8px; /* 선택사항: 둥근 모서리 */
+  }
+  
+  .proto-timeline {
+    flex: 2;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 12px;
+    padding-bottom: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    /* 자동 스크롤은 JS에서 처리하므로 브라우저의 부드러운 스크롤은 비활성화 */
+    scroll-behavior: auto;
+    min-height: 0; /* flexbox에서 overflow를 위해 필요 */
+    max-height: 100%;
+  }
+  
+  .proto-clock {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 0; /* flexbox에서 overflow를 위해 필요 */
+    max-height: 100%;
+  }
+  
+  .clock-label {
+    font-size: 0.9rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  
+  .clock-time {
+    font-size: 3.5rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+  
+  .clock-loop-count {
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 8px;
+  }
+  
+  .timeline-trigger {
+    color: #4da3ff;
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+  
+  .timeline-trigger:hover {
+    color: #82c2ff;
+  }
+  
+  .timeline-action {
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  
+  .timeline-action-active {
+    color: #4da3ff;
+  }
+  
+  .timeline-action-active:hover {
+    color: #82c2ff;
+  }
+  
+  .timeline-action-inactive {
+    color: rgba(255, 255, 255, 0.9);
+    cursor: default;
+    text-decoration: none;
+  }
+  
+  .timeline-cell {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    min-height: 60px;
+  }
+  
+  .timeline-cell:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+  
+  .cell-time {
+    width: 64px;
+    flex-shrink: 0;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.85);
+  }
+  
+  .cell-text {
+    flex: 1;
+    line-height: 1.5;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.9);
+  }
+  
+  /* 스크롤바 */
+  .proto-timeline::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .proto-timeline::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .proto-timeline::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+  }
+  
+  /* SugarCube UI 요소 숨기기 */
+  #ui-bar,
+  #ui-bar-body,
+  #menu,
+  #menu-core,
+  #menu-story,
+  #menu-saves,
+  #menu-settings,
+  #menu-switcher {
+    display: none !important;
+  }
+  
+  #passages {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+  }
+  
+  #story {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .passage {
+    height: 100vh;
+    max-height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
