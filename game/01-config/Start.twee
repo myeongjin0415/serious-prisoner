@@ -12,7 +12,7 @@ Prisoner Prototype
 
 :: Start
 <<set _timeline = setup.timeline>>
-<<set _startMin = setup.timelineStartMinutes>>
+<<set _startMin = setup.timelineStartMinutes || 480>>
 
 <div class="proto-layout">
   <div class="proto-timeline" id="timeline">
@@ -22,12 +22,14 @@ Prisoner Prototype
     <<for _i = 0; _i < _timeline.length; _i++>>
       <<set _item = _timeline[_i]>>
       <<set _abs = _startMin + _item.minutesFromStart>>
-      <<set _hour = Math.floor(_abs / 60)>>
+      
+      <<set _hour = Math.floor(_abs / 60) % 24>> 
       <<set _min = _abs % 60>>
       <<set _time = setup.formatTime(_hour, _min)>>
       <<set _scripts = _item.scripts>>
       <<set _text = _scripts[0]>>
-      <div class="timeline-cell" data-time="<<print _time>>" data-minutes="<<print _abs>>">
+      
+      <div class="timeline-cell" @data-time="_time" @data-minutes="_abs" data-cell-index="<<print _i>>">
         <div class="cell-time"><<print _time>></div>
         <div class="cell-text"><<print _text>></div>
       </div>
@@ -38,7 +40,7 @@ Prisoner Prototype
   </div>
 
   <div class="proto-clock">
-    <div class="clock-label">현재 시간</div>
+    <div class="clock-date" id="clock-date">12월 2일</div>
     <div class="clock-time" id="clock-time">08:00</div>
     <div class="clock-loop-count" id="clock-loop-count">루프: 0</div>
   </div>

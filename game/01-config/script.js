@@ -1,45 +1,4 @@
-// setup 객체 정의
-setup.timelineStartMinutes = 480;
-setup.formatTime = function(hour, min) {
-  return String(hour).padStart(2, '0') + ':' + String(min).padStart(2, '0');
-};
-setup.timeline = [
-  {
-    minutesFromStart: 0,
-    scripts: [
-      "[총성:1:0:(세면실)]과 함께 기상한다... 침대에서 벗어나 정해진 순서대로 움직인다.",
-      "나는 누구였찌?"
-    ]
-  },
-  {
-    minutesFromStart: 15,
-    scripts: [
-      "문이 열린다. 간수의 이동 명령에 따라 (세면실:4->1)로 이동한다. 정해진 시간 내에 세면을 마쳐야 한다."
-    ]
-  },
-  {
-    minutesFromStart: 30,
-    scripts: [
-      "아침 식사 시간. 식당으로 이동하여 배식받은 식사를 먹는다. [대화:3 -> 1]는 금지되어 있다.",
-      "아침 식사 시간. 식당으로 이동하여 배식받은 식사를 먹는다. 작은 속삭임이 오가지만, 간수의 눈치를 보며 조심스럽게 말을 섞는다.",
-      "저녁 식사 시간"
-    ]
-  },
-  {
-    minutesFromStart: 45,
-    scripts: [
-      "식사 후 식기를 반납하고 복도로 이동한다. 각자의 작업장으로 향한다.",
-      "저녁 식사 시간"
-    ]
-  },
-    {
-    minutesFromStart: 60,
-    scripts: [
-      "식사 후 식기를 반납하고 복도로 이동한다. 각자의 작업장으로 향한다.",
-      "으아아아아아아아아!!!!!"
-    ]
-  }
-];
+
 
 // 전역 루프 카운터 (페이지 전체에서 누적)
 window.__timelineLoopCount = window.__timelineLoopCount || 0;
@@ -49,14 +8,16 @@ window.updateClock = function(timelineCells, timelineContainer) {
   if (!timelineCells || timelineCells.length === 0 || !timelineContainer) return;
   
   const clockElement = document.getElementById('clock-time');
+  const clockDateElement = document.getElementById('clock-date'); // [추가됨]
+  
   if (!clockElement) return;
   
-  // 스크롤 위치와 뷰포트 높이로 중앙 위치 계산
+  // 스크롤 위치 계산
   const scrollTop = timelineContainer.scrollTop;
   const viewportHeight = timelineContainer.clientHeight;
   const viewportCenter = scrollTop + viewportHeight / 2;
   
-  // 뷰포트 중앙에 가장 가까운 셀 찾기 (offsetTop 사용으로 성능 향상)
+  // 가장 가까운 셀 찾기
   let closestCell = null;
   let minDistance = Infinity;
   
@@ -64,8 +25,6 @@ window.updateClock = function(timelineCells, timelineContainer) {
     const cellTop = cell.offsetTop;
     const cellHeight = cell.offsetHeight;
     const cellCenter = cellTop + cellHeight / 2;
-    
-    // 셀이 뷰포트 중앙에 가장 가까운지 확인
     const distance = Math.abs(cellCenter - viewportCenter);
     
     if (distance < minDistance) {
@@ -76,11 +35,36 @@ window.updateClock = function(timelineCells, timelineContainer) {
   
   if (closestCell) {
     const timeText = closestCell.querySelector('.cell-time');
+    const minutesAttr = closestCell.getAttribute('data-minutes'); // 총 분(minutes)
+    
+    // A. 시간 업데이트
     if (timeText) {
       const newTime = timeText.textContent.trim();
-      // 값이 변경된 경우에만 업데이트 (불필요한 DOM 조작 방지)
       if (clockElement.textContent !== newTime) {
         clockElement.textContent = newTime;
+      }
+    }
+
+    // B. 날짜 업데이트 [핵심 로직]
+    if (clockDateElement && minutesAttr !== null) {
+      const totalMinutes = parseInt(minutesAttr, 10);
+
+      
+      
+      if (!isNaN(totalMinutes)) {
+        // 1440분 = 24시간. (총 분 / 1440)의 몫이 경과한 일수입니다.
+        const elapsedDays = Math.floor(totalMinutes / 1440);
+        
+        const startConf = setup.timelineStartDate || { month: 12, day: 2 };
+        const currentDay = startConf.day + elapsedDays;
+        
+        // 날짜 텍스트 생성
+        const newDateText = startConf.month + '월 ' + currentDay + '일';
+        
+        // 텍스트가 다를 때만 업데이트
+        if (clockDateElement.textContent !== newDateText) {
+          clockDateElement.textContent = newDateText;
+        }
       }
     }
   }
