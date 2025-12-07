@@ -1,370 +1,180 @@
-
-
-// 전역 루프 카운터 (페이지 전체에서 누적)
+// 전역 루프 카운터
 window.__timelineLoopCount = window.__timelineLoopCount || 0;
 
-// 시계 업데이트 함수 (최적화: 스크롤 위치 기반 계산)
+// 시계 업데이트 함수 (수정됨)
 window.updateClock = function(timelineCells, timelineContainer) {
-  if (!timelineCells || timelineCells.length === 0 || !timelineContainer) return;
+  if (!timelineCells.length || !timelineContainer) return;
   
   const clockElement = document.getElementById('clock-time');
-  const clockDateElement = document.getElementById('clock-date'); // [추가됨]
+  const clockDateElement = document.getElementById('clock-date');
   
-  if (!clockElement) return;
-  
-  // 스크롤 위치 계산
-  const scrollTop = timelineContainer.scrollTop;
-  const viewportHeight = timelineContainer.clientHeight;
-  const viewportCenter = scrollTop + viewportHeight / 2;
-  
-  // 가장 가까운 셀 찾기
+  const viewportCenter = timelineContainer.scrollTop + (timelineContainer.clientHeight / 2);
   let closestCell = null;
   let minDistance = Infinity;
   
-  timelineCells.forEach(function(cell) {
-    const cellTop = cell.offsetTop;
-    const cellHeight = cell.offsetHeight;
-    const cellCenter = cellTop + cellHeight / 2;
-    const distance = Math.abs(cellCenter - viewportCenter);
-    
-    if (distance < minDistance) {
-      minDistance = distance;
-      closestCell = cell;
-    }
+  timelineCells.forEach(cell => {
+    const dist = Math.abs((cell.offsetTop + cell.offsetHeight / 2) - viewportCenter);
+    if (dist < minDistance) { minDistance = dist; closestCell = cell; }
   });
   
   if (closestCell) {
-    const timeText = closestCell.querySelector('.cell-time');
-    const minutesAttr = closestCell.getAttribute('data-minutes'); // 총 분(minutes)
-    
-    // A. 시간 업데이트
-    if (timeText) {
-      const newTime = timeText.textContent.trim();
-      if (clockElement.textContent !== newTime) {
-        clockElement.textContent = newTime;
-      }
+    // 시간 업데이트
+    const timeText = closestCell.querySelector('.cell-time').textContent.trim();
+    if (clockElement && clockElement.textContent !== timeText) {
+      clockElement.textContent = timeText;
     }
-
-    // B. 날짜 업데이트 [핵심 로직]
-    if (clockDateElement && minutesAttr !== null) {
-      const totalMinutes = parseInt(minutesAttr, 10);
-
-      
-      
-      if (!isNaN(totalMinutes)) {
-        // 1440분 = 24시간. (총 분 / 1440)의 몫이 경과한 일수입니다.
-        const elapsedDays = Math.floor(totalMinutes / 1440);
-        
-        const startConf = setup.timelineStartDate || { month: 12, day: 2 };
-        const currentDay = startConf.day + elapsedDays;
-        
-        // 날짜 텍스트 생성
-        const newDateText = startConf.month + '월 ' + currentDay + '일';
-        
-        // 텍스트가 다를 때만 업데이트
-        if (clockDateElement.textContent !== newDateText) {
-          clockDateElement.textContent = newDateText;
-        }
-      }
+    
+    // 날짜 업데이트 (Start 패시지에서 넣어둔 data-date-text 사용)
+    const dateText = closestCell.getAttribute('data-date-text');
+    if (clockDateElement && dateText && clockDateElement.textContent !== dateText) {
+      clockDateElement.textContent = dateText;
     }
   }
 };
 
-// 스크롤 이벤트 핸들러 (throttle 적용)
 window.throttle = function(func, wait) {
   let timeout;
   return function() {
-    const context = this;
-    const args = arguments;
     if (!timeout) {
-      timeout = setTimeout(function() {
-        timeout = null;
-        func.apply(context, args);
-      }, wait);
+      timeout = setTimeout(() => { timeout = null; func.apply(this, arguments); }, wait);
     }
   };
 };
 
 // 초기화 함수
 window.initTimeline = function() {
-  const timelineContainer = document.getElementById('timeline');
-  const clockElement = document.getElementById('clock-time');
-  const loopCountElement = document.getElementById('clock-loop-count');
+  const container = document.getElementById('timeline');
+  if (!container) { setTimeout(window.initTimeline, 100); return; }
   
-  if (!timelineContainer || !clockElement) {
-    setTimeout(window.initTimeline, 100);
-    return;
-  }
+  const cells = Array.from(container.querySelectorAll('.timeline-cell'));
+  if (!cells.length) { setTimeout(window.initTimeline, 100); return; }
+
+  // 초기 시계 업데이트
+  window.updateClock(cells, container);
   
-  // 모든 타임라인 셀 가져오기
-  const timelineCells = Array.from(timelineContainer.querySelectorAll('.timeline-cell'));
+  const loopEl = document.getElementById('clock-loop-count');
+  if (loopEl) loopEl.textContent = '루프: ' + window.__timelineLoopCount;
+
+  /* ★ 액션 파싱 로직 (ID 기반으로 변경) ★ */
+/* ★ 액션 파싱 로직 (ID 기반으로 변경) ★ */
+function setupActions() {
+  // 시간 ID 패턴: 숫자2자리-숫자2자리-숫자2자리-숫자2자리 (예: 12-02-08-30)
+  const timeIdPattern = "\\d{2}-\\d{2}-\\d{2}-\\d{2}";
+
+  // 1. Trigger: [텍스트:TimeID:ScriptIdx:(라벨)]
+  const triggerRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern}):(\\d+):\\(([^\\)]+)\\)\\]`, 'g');
   
-  if (timelineCells.length === 0) {
-    setTimeout(window.initTimeline, 100);
-    return;
-  }
+  // 2. Active: [라벨:TimeID -> ScriptIdx]
+  const activeRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern})\\s*->\\s*(\\d+)\\]`, 'g');
   
-  // 초기 시간 설정 (첫 번째 셀의 시간)
-  const firstCell = timelineCells[0];
-  const firstTime = firstCell.querySelector('.cell-time');
-  if (firstTime) {
-    clockElement.textContent = firstTime.textContent.trim();
-  }
-  
-  // 루프 카운터 표시 초기화 (전역 값 사용)
-  if (loopCountElement) {
-    loopCountElement.textContent = '루프: ' + window.__timelineLoopCount;
-  }
+  // 3. Inactive: (라벨:TimeID -> ScriptIdx)
+  const inactiveRegex = new RegExp(`\\(([^\\(\\):]+):(${timeIdPattern})\\s*->\\s*(\\d+)\\)`, 'g');
 
-  // 텍스트 안의 다양한 액션 패턴을 파싱해 클릭 가능한 링크로 변환
-  function setupTimelineActions() {
-    // 1. 주체 패턴: [주체텍스트:타겟셀인덱스:타겟스크립트인덱스:(레이블)]
-    const triggerRegex = /\[([^\[\]:]+):(\d+):(\d+):\(([^\)]+)\)\]/g;
-    // 2. 활성화된 액션 패턴: [레이블:타겟셀인덱스 -> 타겟스크립트인덱스]
-    const activeActionRegex = /\[([^\[\]:]+):(\d+)\s*->\s*(\d+)\]/g;
-    // 3. 비활성화된 액션 패턴: (레이블:타겟셀인덱스 -> 타겟스크립트인덱스)
-    const inactiveActionRegex = /\(([^\(\):]+):(\d+)\s*->\s*(\d+)\)/g;
+  cells.forEach(cell => {
+    const textEl = cell.querySelector('.cell-text');
+    if (!textEl) return;
+    let html = textEl.textContent;
 
-    timelineCells.forEach(function(cell, cellIndex) {
-      const textEl = cell.querySelector('.cell-text');
-      if (!textEl) return;
+    // HTML 변환
+    html = html.replace(triggerRegex, (_, txt, timeId, sIdx, lbl) => 
+      `<span class="timeline-trigger" data-target-id="${timeId}" data-script-idx="${sIdx}" data-label="${lbl}">${txt}</span>`
+    );
+    html = html.replace(activeRegex, (_, lbl, timeId, sIdx) => 
+      `<span class="timeline-action active" data-target-id="${timeId}" data-script-idx="${sIdx}">${lbl}</span>`
+    );
+    html = html.replace(inactiveRegex, (_, lbl, timeId, sIdx) => 
+      `<span class="timeline-action inactive" data-target-id="${timeId}" data-script-idx="${sIdx}" data-label="${lbl}">${lbl}</span>`
+    );
 
-      const rawText = textEl.textContent;
-      if (!rawText) return;
+    if (html !== textEl.textContent) textEl.innerHTML = html;
+  });
 
-      let replaced = rawText;
+  // 클릭 이벤트 핸들러
+  container.onclick = function(e) {
+    const trigger = e.target.closest('.timeline-trigger');
+    const action = e.target.closest('.timeline-action.active');
+    const target = trigger || action;
 
-      // 1. 주체 패턴 처리 (먼저 처리하여 다른 패턴과 겹치지 않도록)
-      replaced = replaced.replace(triggerRegex, function(_, triggerText, targetCellIndexStr, targetScriptIndexStr, label) {
-        const targetCellIndex = parseInt(targetCellIndexStr, 10);
-        const targetScriptIndex = parseInt(targetScriptIndexStr, 10);
-        return '<span class="timeline-trigger" data-trigger-text="' +
-          triggerText + '" data-target-cell-index="' + targetCellIndex +
-          '" data-target-script-index="' + targetScriptIndex +
-          '" data-label="' + label + '">' + triggerText + '</span>';
-      });
+    if (!target) return;
+    e.preventDefault(); e.stopPropagation();
 
-      // 2. 활성화된 액션 패턴 처리
-      replaced = replaced.replace(activeActionRegex, function(_, label, targetIndexStr, scriptIndexStr) {
-        const targetIndex = parseInt(targetIndexStr, 10);
-        const scriptIndex = parseInt(scriptIndexStr, 10);
-        return '<span class="timeline-action timeline-action-active" data-target-index="' +
-          targetIndex + '" data-script-index="' + scriptIndex + '">' +
-          label + '</span>';
-      });
-
-      // 3. 비활성화된 액션 패턴 처리
-      replaced = replaced.replace(inactiveActionRegex, function(_, label, targetIndexStr, scriptIndexStr) {
-        const targetIndex = parseInt(targetIndexStr, 10);
-        const scriptIndex = parseInt(scriptIndexStr, 10);
-        return '<span class="timeline-action timeline-action-inactive" data-target-index="' +
-          targetIndex + '" data-script-index="' + scriptIndex +
-          '" data-label="' + label + '">' + label + '</span>';
-      });
-
-      if (replaced !== rawText) {
-        textEl.innerHTML = replaced;
-      }
-    });
-
-    // 이벤트 위임을 사용하여 중복 등록 방지
-    // 기존 이벤트 리스너 제거 (중복 방지)
-    if (timelineContainer._timelineActionHandler) {
-      timelineContainer.removeEventListener('click', timelineContainer._timelineActionHandler);
-    }
+    const targetId = target.getAttribute('data-target-id'); // 이동할 타겟 셀 ID
+    const scriptIdx = parseInt(target.getAttribute('data-script-idx'), 10);
     
-    // 주체 및 활성화된 액션 클릭 핸들러 (이벤트 위임)
-    timelineContainer._timelineActionHandler = function(event) {
-      const triggerEl = event.target.closest('.timeline-trigger');
-      const actionEl = event.target.closest('.timeline-action-active');
-      
-      if (triggerEl) {
-        // 주체 클릭 처리
-        event.preventDefault();
-        event.stopPropagation();
-
-        const targetCellIndex = parseInt(triggerEl.getAttribute('data-target-cell-index'), 10);
-        const targetScriptIndex = parseInt(triggerEl.getAttribute('data-target-script-index'), 10);
-        const label = triggerEl.getAttribute('data-label');
-
-        const targetCell = timelineCells[targetCellIndex];
-        if (!targetCell) {
-          console.warn('타겟 셀을 찾을 수 없습니다:', targetCellIndex);
-          return;
-        }
-
-        const targetTextEl = targetCell.querySelector('.cell-text');
-        if (!targetTextEl) return;
-
-        // 해당 셀의 해당 스크립트에서 비활성화된 액션을 찾아 활성화
-        const timeline = (typeof setup !== 'undefined' ? setup : (window.setup || {})).timeline || [];
-        const targetItem = timeline[targetCellIndex];
-        
-        if (!targetItem || !Array.isArray(targetItem.scripts)) {
-          console.warn('타겟 아이템을 찾을 수 없습니다:', targetCellIndex);
-          return;
-        }
-        
-        if (targetItem.scripts[targetScriptIndex] === undefined) {
-          console.warn('지정된 스크립트를 찾을 수 없습니다:', targetCellIndex, targetScriptIndex);
-          return;
-        }
-
-        const targetScript = targetItem.scripts[targetScriptIndex];
-        // 비활성화된 액션 패턴을 활성화된 액션 패턴으로 교체
-        const inactivePattern = new RegExp('\\(' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':(\\d+)\\s*->\\s*(\\d+)\\)', 'g');
-        const activatedScript = targetScript.replace(inactivePattern, function(_, targetIndexStr, scriptIndexStr) {
-          return '[' + label + ':' + targetIndexStr + ' -> ' + scriptIndexStr + ']';
-        });
-
-        // 스크립트가 변경된 경우 업데이트
-        if (activatedScript !== targetScript) {
-          targetItem.scripts[targetScriptIndex] = activatedScript;
-          // DOM을 원본 텍스트로 업데이트하고 다시 파싱
-          targetTextEl.textContent = activatedScript;
-          // 모든 셀을 다시 파싱하여 클릭 가능하게 만들기
-          setupTimelineActions();
-        }
-      } else if (actionEl) {
-        // 활성화된 액션 클릭 처리
-        event.preventDefault();
-        event.stopPropagation();
-
-        const targetIndex = parseInt(actionEl.getAttribute('data-target-index'), 10);
-        const scriptIndex = parseInt(actionEl.getAttribute('data-script-index'), 10);
-
-        const targetCell = timelineCells[targetIndex];
-        if (!targetCell) {
-          console.warn('타겟 셀을 찾을 수 없습니다:', targetIndex);
-          return;
-        }
-
-        const targetTextEl = targetCell.querySelector('.cell-text');
-        if (!targetTextEl) return;
-
-        // SugarCube의 setup 객체 직접 참조 (window.setup과 동기화 보장)
-        const timeline = (typeof setup !== 'undefined' ? setup : (window.setup || {})).timeline || [];
-        const targetItem = timeline[targetIndex];
-        
-        if (!targetItem) {
-          console.warn('타겟 아이템을 찾을 수 없습니다:', targetIndex, 'timeline length:', timeline.length);
-          return;
-        }
-        
-        if (!Array.isArray(targetItem.scripts)) {
-          console.warn('타겟 아이템에 scripts 배열이 없습니다:', targetIndex, targetItem);
-          return;
-        }
-        
-        if (targetItem.scripts[scriptIndex] === undefined) {
-          console.warn('지정된 스크립트를 찾을 수 없습니다:', targetIndex, scriptIndex, 'available scripts:', targetItem.scripts.length);
-          return;
-        }
-
-        // 해당 셀 텍스트를 선택된 스크립트로 교체
-        targetTextEl.textContent = targetItem.scripts[scriptIndex];
-        // 다시 파싱하여 새로운 액션들이 클릭 가능하게 만들기
-        setupTimelineActions();
-      }
-    };
-    
-    timelineContainer.addEventListener('click', timelineContainer._timelineActionHandler);
-  }
-  
-  // 스크롤 이벤트 핸들러 (throttle로 성능 최적화)
-  const handleScroll = window.throttle(function() {
-    window.updateClock(timelineCells, timelineContainer);
-  }, 100); // 100ms마다 업데이트 (성능 향상)
-  
-  // 자동 스크롤 애니메이션 플래그
-  let isAutoScrolling = false;
-  
-  // 초기 스크롤 위치 계산 함수 (루프를 위해 재사용)
-  function calculateInitialScrollPosition() {
-    // 항상 0으로 시작
-    return 0;
-  }
-  
-  // 초기 설정: 첫 번째 셀이 화면 아래에서 나타나도록 스크롤 위치 계산
-  // 레이아웃이 완전히 렌더링될 때까지 기다림
-  setTimeout(function() {
-    const initialScroll = calculateInitialScrollPosition();
-    timelineContainer.scrollTop = initialScroll;
-  }, 50);
-  
-  // 약간의 딜레이 후 위에서 아래로 계속 스크롤 시작
-  setTimeout(function() {
-    // 최대 스크롤 가능한 값 계산
-    const maxScroll = timelineContainer.scrollHeight - timelineContainer.clientHeight;
-    
-    // 스크롤할 거리가 충분한지 확인
-    if (maxScroll <= 0) {
+    // 1. 타겟 셀 찾기
+    const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
+    if (!targetCell) {
+      console.warn('Target cell not found for ID:', targetId);
       return;
     }
-    
-    isAutoScrolling = true;
 
-    // 셀 텍스트 안의 액션 링크 설정
-    setupTimelineActions();
-    const scrollSpeed = 30; // 초당 3000픽셀 스크롤
-    const scrollInterval = 16; // 16ms마다 스크롤 업데이트 (약 60fps)
-    const clockUpdateInterval = 100; // 100ms마다 시계 업데이트
-    
-    // 스크롤 업데이트: setInterval 사용
-    const scrollTimer = setInterval(function() {
-      const currentScroll = timelineContainer.scrollTop;
-      const currentMaxScroll = timelineContainer.scrollHeight - timelineContainer.clientHeight;
-
-      // 스크롤 속도에 따라 위치 증가 (초당 픽셀을 ms당 픽셀로 변환)
-      const newScroll = currentScroll + (scrollSpeed * scrollInterval / 1000);
-
-      // 최대 스크롤 위치를 넘으면 루프 1회만 증가시키고 맨 위로 점프 (전역 카운터 사용)
-      if (newScroll >= currentMaxScroll) {
-        window.__timelineLoopCount++;
-        if (loopCountElement) {
-          loopCountElement.textContent = '루프: ' + window.__timelineLoopCount;
-        }
-        timelineContainer.scrollTop = 0;
-        window.updateClock(timelineCells, timelineContainer);
-        return;
-      }
-
-      // 정상 스크롤 진행
-      timelineContainer.scrollTop = newScroll;
-    }, scrollInterval);
-    
-    // 시계 업데이트: 별도의 setInterval 사용
-    const clockTimer = setInterval(function() {
-      if (isAutoScrolling) {
-        window.updateClock(timelineCells, timelineContainer);
-      }
-    }, clockUpdateInterval);
-  }, 600); // 600ms 딜레이
-  
-  // 스크롤 이벤트 리스너 추가
-  timelineContainer.addEventListener('scroll', function() {
-    if (isAutoScrolling) {
-      // 자동 스크롤 중에는 애니메이션 루프에서 업데이트하므로 여기서는 업데이트하지 않음
-      // (중복 호출 방지)
-    } else {
-      handleScroll();
+    // 2. 데이터 원본 찾기
+    const dataItem = setup.timeline.find(item => item.timeId === targetId);
+    if (!dataItem || !dataItem.scripts[scriptIdx]) {
+      console.warn('Script not found:', targetId, scriptIdx);
+      return;
     }
-  });
+
+    // 3. 스크립트 교체
+    if (trigger) {
+      const label = target.getAttribute('data-label');
+      const targetScript = dataItem.scripts[scriptIdx];
+      
+      // [수정된 부분] 
+      // 기존: targetId를 사용하여 찾음 -> 실패 (안에 적힌 건 그 다음 단계 ID이므로)
+      // 변경: timeIdPattern을 사용하여 "괄호 안에 있는 어떤 시간 ID든" 찾음
+      const pattern = new RegExp(`\\(${label}:(${timeIdPattern})\\s*->\\s*(\\d+)\\)`);
+      
+      const newScript = targetScript.replace(pattern, function(_, nextTimeId, nextScriptIdx) {
+          // 찾은 ID(nextTimeId)를 그대로 유지하면서 대괄호[]로 감싸 활성화
+          return `[${label}:${nextTimeId} -> ${nextScriptIdx}]`;
+      });
+      
+      if (newScript !== targetScript) {
+        dataItem.scripts[scriptIdx] = newScript;
+        targetCell.querySelector('.cell-text').textContent = newScript;
+        setupActions(); // 재파싱
+      }
+    } else {
+      // 단순 텍스트 교체 (Active Action 클릭 시)
+      targetCell.querySelector('.cell-text').textContent = dataItem.scripts[scriptIdx];
+      setupActions();
+    }
+  };
+}
   
-  // 초기 업데이트
-  window.updateClock(timelineCells, timelineContainer);
+  // 최초 실행
+  setupActions();
+
+  // 스크롤 및 자동 재생
+  const handleScroll = window.throttle(() => window.updateClock(cells, container), 100);
+  container.addEventListener('scroll', handleScroll);
+
+  let isAutoScrolling = false;
+  setTimeout(() => {
+    // 자동 스크롤 기능 (필요시 true로 변경)
+    isAutoScrolling = true; 
+    const speed = 30; 
+    
+    // 스크롤 루프
+    setInterval(() => {
+      if (!isAutoScrolling) return;
+      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 5) {
+        window.__timelineLoopCount++;
+        const loopEl = document.getElementById('clock-loop-count');
+        if(loopEl) loopEl.textContent = '루프: ' + window.__timelineLoopCount;
+        container.scrollTop = 0;
+        window.updateClock(cells, container);
+      } else {
+        container.scrollTop += (speed * 16 / 1000);
+      }
+    }, 16);
+    
+    // 시계 업데이트 루프
+    setInterval(() => { if (isAutoScrolling) window.updateClock(cells, container); }, 100);
+  }, 600);
 };
 
-// SugarCube가 완전히 로드될 때까지 기다림
-jQuery(document).one(':storyready', function() {
-  setTimeout(window.initTimeline, 100);
-});
-
-// SugarCube 이벤트 리스너 등록
-jQuery(document).on(':passagedisplay', function() {
-  setTimeout(window.initTimeline, 100);
-});
-
-jQuery(document).on(':passageinit', function() {
-  setTimeout(window.initTimeline, 100);
-});
+// SugarCube 로드 대기
+jQuery(document).one(':storyready', function() { setTimeout(window.initTimeline, 100); });
+jQuery(document).on(':passagedisplay', function() { setTimeout(window.initTimeline, 100); });

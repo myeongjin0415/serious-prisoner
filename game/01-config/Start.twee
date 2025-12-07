@@ -12,31 +12,26 @@ Prisoner Prototype
 
 :: Start
 <<set _timeline = setup.timeline>>
-<<set _startMin = setup.timelineStartMinutes || 480>>
 
 <div class="proto-layout">
   <div class="proto-timeline" id="timeline">
-    <<for _i = 0; _i < 10; _i++>>
-      <br>
-    <</for>>
+    <<for _i = 0; _i < 15; _i++>><br><</for>>
+    
     <<for _i = 0; _i < _timeline.length; _i++>>
       <<set _item = _timeline[_i]>>
-      <<set _abs = _startMin + _item.minutesFromStart>>
+      <<set _timeStr = setup.formatTime(_item.hour, _item.min)>>
       
-      <<set _hour = Math.floor(_abs / 60) % 24>> 
-      <<set _min = _abs % 60>>
-      <<set _time = setup.formatTime(_hour, _min)>>
-      <<set _scripts = _item.scripts>>
-      <<set _text = _scripts[0]>>
-      
-      <div class="timeline-cell" @data-time="_time" @data-minutes="_abs" data-cell-index="<<print _i>>">
-        <div class="cell-time"><<print _time>></div>
-        <div class="cell-text"><<print _text>></div>
+      <div class="timeline-cell" 
+           @data-time-id="_item.timeId" 
+           @data-minutes="_item.totalMinutes"
+           @data-date-text="_item.dateText">
+           
+        <div class="cell-time"><<print _timeStr>></div>
+        <div class="cell-text"><<print _item.scripts[0]>></div>
       </div>
     <</for>>
-    <<for _i = 0; _i < 10; _i++>>
-      <br>
-    <</for>>
+    
+    <<for _i = 0; _i < 15; _i++>><br><</for>>
   </div>
 
   <div class="proto-clock">
