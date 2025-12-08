@@ -1,6 +1,8 @@
 // 전역 루프 카운터
 window.__timelineLoopCount = window.__timelineLoopCount || 0;
 
+window.__timelineFlags = new Set(); // 전역 플래그 저장소
+
 // 시계 업데이트 함수 (수정됨)
 window.updateClock = function(timelineCells, timelineContainer) {
   if (!timelineCells.length || !timelineContainer) return;
@@ -60,104 +62,163 @@ window.initTimeline = function() {
   /* ★ [추가됨] 루프 카운트에 따라 콘텐츠 업데이트하는 함수 ★ */
   function updateContentByLoop() {
     const currentLoop = window.__timelineLoopCount;
+    // 현재 활성화된 플래그 세트 가져오기
+    const currentFlags = window.__timelineFlags || new Set();
 
     cells.forEach(cell => {
-      // 1. 해당 셀의 데이터 원본 찾기
-      const timeId = cell.getAttribute('data-time-id'); // Start 패시지에서 넣어둔 ID
+      const timeId = cell.getAttribute('data-time-id');
       const dataItem = setup.timeline.find(item => item.timeId === timeId);
       
-      if (!dataItem || !dataItem.loopTriggers) return;
+      if (!dataItem) return;
 
-      // 2. 조건에 맞는 스크립트 인덱스 찾기
-      let targetIndex = 0; // 기본값
-      
-      // loopTriggers 배열을 순회하며 조건 확인 (오름차순 정렬 가정하거나 끝까지 확인)
-      dataItem.loopTriggers.forEach(trigger => {
-        if (currentLoop >= trigger.loop) {
-          targetIndex = trigger.index;
-        }
-      });
+      let targetIndex = 0; // 기본값 (script 0)
 
-      // 3. 현재 내용과 다르면 업데이트
-      // 주의: 이미 링크를 눌러서 바뀐 내용은 초기화됩니다. (루프니까 초기화되는게 맞음)
+      // 1. 루프 횟수 체크 (기존 로직)
+      if (dataItem.loopTriggers) {
+        dataItem.loopTriggers.forEach(trigger => {
+          if (currentLoop >= trigger.loop) {
+            targetIndex = trigger.index;
+          }
+        });
+      }
+
+      // 2. ★ 조건(플래그) 체크 (우선순위 높음) ★
+      if (dataItem.conditionTriggers) {
+        dataItem.conditionTriggers.forEach(cond => {
+          // required 배열의 모든 플래그가 currentFlags에 있는지 확인
+          const allMet = cond.required.every(flag => currentFlags.has(flag));
+          if (allMet) {
+            targetIndex = cond.index;
+          }
+        });
+      }
+
+      // 3. 내용 업데이트 (기존과 동일)
       const newText = dataItem.scripts[targetIndex];
       const textEl = cell.querySelector('.cell-text');
-      
-      // 현재 텍스트가 단순히 태그가 포함된 상태일 수 있으므로 텍스트 내용만 비교하긴 어려움
-      // 따라서 루프가 바뀔 때마다 무조건 갱신하거나, 플래그를 두는 방식 사용
-      // 여기서는 data-current-loop-idx 속성을 심어서 비교합니다.
       const currentRenderedIdx = parseInt(cell.getAttribute('data-current-script-idx') || 0);
 
-      if (currentRenderedIdx !== targetIndex) {
-         textEl.textContent = newText;
+      // 텍스트가 다르거나, 인덱스가 다르면 업데이트
+      if (currentRenderedIdx !== targetIndex || textEl.textContent !== newText) {
+         textEl.innerHTML = newText; // innerHTML로 넣어야 태그가 먹힘 (초기화 시)
          cell.setAttribute('data-current-script-idx', targetIndex);
-         // console.log(`[Loop Update] ${timeId} updated to index ${targetIndex}`);
       }
     });
 
-    // 4. 텍스트가 바뀌었으니 액션 링크(이벤트) 다시 연결
+    // 텍스트가 바뀌었으니 액션 파싱 다시 수행
     setupActions();
   }
 
   /* 액션 파싱 로직 (기존 코드 유지) */
   function setupActions() {
     const timeIdPattern = "\\d{2}-\\d{2}-\\d{2}-\\d{2}";
-    const triggerRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern}):(\\d+):\\(([^\\)]+)\\)\\]`, 'g');
-    const activeRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern})\\s*->\\s*(\\d+)\\]`, 'g');
-    const inactiveRegex = new RegExp(`\\(([^\\(\\):]+):(${timeIdPattern})\\s*->\\s*(\\d+)\\)`, 'g');
-
+    
+    // 태그 패턴: 공백이나 콜론 뒤에 #이 오고 문자열, 그리고 닫는 괄호 직전
+    // 그룹 1번이 태그명(Flag Name)이 됩니다.
+    const flagPattern = "(?:[:\\s]+#([a-zA-Z0-9_가-힣]+))?";
+  
+    // 1. 트리거: [텍스트:시간:번호:(대상) #태그]
+    // 순서: 텍스트(1) -> 시간(2) -> 번호(3) -> (대상라벨)(4) -> 태그(5)
+    const triggerRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern}):(\\d+):\\(([^\\)]+)\\)${flagPattern}\\]`, 'g');
+    
+    // 2. 활성 액션: [텍스트:시간->번호 #태그]
+    // 순서: 텍스트(1) -> 시간(2) -> 번호(3) -> 태그(4)
+    const activeRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern})\\s*->\\s*(\\d+)${flagPattern}\\]`, 'g');
+  
+    // 3. 비활성 액션: (텍스트:시간->번호 #태그)
+    // 순서: 텍스트(1) -> 시간(2) -> 번호(3) -> 태그(4)
+    const inactiveRegex = new RegExp(`\\(([^\\[\\]:]+):(${timeIdPattern})\\s*->\\s*(\\d+)${flagPattern}\\)`, 'g');
+  
     cells.forEach(cell => {
       const textEl = cell.querySelector('.cell-text');
       if (!textEl) return;
       let html = textEl.textContent;
-
-      html = html.replace(triggerRegex, (_, txt, timeId, sIdx, lbl) => 
-        `<span class="timeline-trigger" data-target-id="${timeId}" data-script-idx="${sIdx}" data-label="${lbl}">${txt}</span>`
-      );
-      html = html.replace(activeRegex, (_, lbl, timeId, sIdx) => 
-        `<span class="timeline-action active" data-target-id="${timeId}" data-script-idx="${sIdx}">${lbl}</span>`
-      );
-      html = html.replace(inactiveRegex, (_, lbl, timeId, sIdx) => 
-        `<span class="timeline-action inactive" data-target-id="${timeId}" data-script-idx="${sIdx}" data-label="${lbl}">${lbl}</span>`
-      );
-
+  
+      // 1. 트리거 변환 (그룹 인덱스 주의: 태그는 5번)
+      html = html.replace(triggerRegex, (_, txt, timeId, sIdx, lbl, flagName) => {
+        const flagAttr = flagName ? `data-flag="${flagName}"` : '';
+        return `<span class="timeline-trigger" data-target-id="${timeId}" data-script-idx="${sIdx}" data-label="${lbl}" ${flagAttr}>${txt}</span>`;
+      });
+  
+      // 2. 활성 액션 변환 (그룹 인덱스 주의: 태그는 4번)
+      html = html.replace(activeRegex, (_, txt, timeId, sIdx, flagName) => {
+        const flagAttr = flagName ? `data-flag="${flagName}"` : '';
+        return `<span class="timeline-action active" data-target-id="${timeId}" data-script-idx="${sIdx}" ${flagAttr}>${txt}</span>`;
+      });
+  
+      // 3. 비활성 액션 변환 (그룹 인덱스 주의: 태그는 4번)
+      html = html.replace(inactiveRegex, (_, txt, timeId, sIdx, flagName) => {
+        const flagAttr = flagName ? `data-flag="${flagName}"` : '';
+        return `<span class="timeline-action inactive" data-target-id="${timeId}" data-script-idx="${sIdx}" data-label="${txt}" ${flagAttr}>${txt}</span>`;
+      });
+  
       if (html !== textEl.textContent) textEl.innerHTML = html;
     });
-
+  
+    // 클릭 이벤트 핸들러
     container.onclick = function(e) {
       const trigger = e.target.closest('.timeline-trigger');
       const action = e.target.closest('.timeline-action.active');
       const target = trigger || action;
-
+  
       if (!target) return;
       e.preventDefault(); e.stopPropagation();
-
+  
+      // ★ 플래그 처리 로직
+      const flagName = target.getAttribute('data-flag');
+      let flagAcquired = false;
+  
+      if (flagName) {
+          window.__timelineFlags = window.__timelineFlags || new Set();
+          if (!window.__timelineFlags.has(flagName)) {
+            window.__timelineFlags.add(flagName);
+            console.log("🚩 Flag Acquired:", flagName, window.__timelineFlags);
+            flagAcquired = true;
+          }
+      }
+  
+      // 타겟 데이터 찾기
       const targetId = target.getAttribute('data-target-id');
       const scriptIdx = parseInt(target.getAttribute('data-script-idx'), 10);
       
-      const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
-      if (!targetCell) return;
-
+      // 플래그 획득 시 전체 갱신 (화면 깜빡임 방지를 위해 로직 순서 주의)
+      if (flagAcquired) {
+         updateContentByLoop();
+         // DOM이 갱신되었을 수 있으므로 target 관련 변수 재사용 주의
+      }
+  
       const dataItem = setup.timeline.find(item => item.timeId === targetId);
       if (!dataItem || !dataItem.scripts[scriptIdx]) return;
-
+      const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
+  
       if (trigger) {
+        // 트리거 클릭 로직
         const label = target.getAttribute('data-label');
         const targetScript = dataItem.scripts[scriptIdx];
-        const pattern = new RegExp(`\\(${label}:(${timeIdPattern})\\s*->\\s*(\\d+)\\)`);
         
-        const newScript = targetScript.replace(pattern, function(_, nextTimeId, nextScriptIdx) {
-            return `[${label}:${nextTimeId} -> ${nextScriptIdx}]`;
+        // 대상 텍스트 안에서 (Label:ID->Idx #태그) 패턴을 찾음
+        // 맨 뒤에 태그가 있을 수도 있고 없을 수도 있음
+        const pattern = new RegExp(`\\(${label}:(${timeIdPattern})\\s*->\\s*(\\d+)(?:[:\\s]+#([a-zA-Z0-9_가-힣]+))?\\)`);
+        
+        const newScript = targetScript.replace(pattern, function(match, nextTimeId, nextScriptIdx, nextFlag) {
+            // 태그가 있다면 유지하면서 대괄호[]로 변경
+            const flagPart = nextFlag ? ` #${nextFlag}` : '';
+            return `[${label}:${nextTimeId} -> ${nextScriptIdx}${flagPart}]`;
         });
         
         if (newScript !== targetScript) {
           dataItem.scripts[scriptIdx] = newScript;
-          targetCell.querySelector('.cell-text').textContent = newScript;
-          setupActions();
+          if(targetCell) {
+             targetCell.querySelector('.cell-text').textContent = newScript;
+          }
+          setupActions(); 
         }
       } else {
-        targetCell.querySelector('.cell-text').textContent = dataItem.scripts[scriptIdx];
-        setupActions();
+        // Active Action 클릭 시 (단순 텍스트 갱신인 경우)
+        if(targetCell) {
+            targetCell.querySelector('.cell-text').textContent = dataItem.scripts[scriptIdx];
+            setupActions();
+        }
       }
     };
   }

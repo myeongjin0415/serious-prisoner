@@ -10,20 +10,20 @@ setup.rawTimeline = [
   {
     month: 12, day: 2, hour: 8, min: 0,
     scripts: [
-      "[총성:12-02-08-15:0:(세면실)]과 함께 기상한다... 침대에서 벗어나...",
+      "[총성:12-02-08-15:0:(세면실) #CLUE_A]과 함께 기상한다... 침대에서 벗어나...",
       "나는 누구였지?"
     ]
   },
   {
     month: 12, day: 2, hour: 8, min: 15,
     scripts: [
-      "문이 열린다. (세면실:12-02-08-30 -> 1)로 이동한다."
+      "문이 열린다. (세면실:12-02-08-30 -> 1 #CLUE_B)로 이동한다."
     ]
   },
   {
     month: 12, day: 2, hour: 8, min: 30,
     scripts: [
-      "아침 식사 시간. [대화:12-02-18-00 -> 1]는 금지되어 있다.", 
+      "아침 식사 시간. [대화:12-02-18-00 -> 1 #CLUE_C]는 금지되어 있다.", 
       "작은 속삭임이 오가지만..."
     ]
   },
@@ -48,6 +48,22 @@ setup.rawTimeline = [
       "반복되는 하루..."
     ]
   },
+  {
+    month: 12, day: 3, hour: 12, min: 30,
+    scripts: [
+      "배드 엔딩",
+      "트루 엔딩!",
+    ],
+    conditionTriggers: [
+      {
+        // 이 3가지 플래그가 모두 window.__timelineFlags에 있어야 함
+        // required: ['CLUE_A', 'CLUE_B'], 
+        // required: ['CLUE_C'], 
+        required: ['CLUE_A','CLUE_B','CLUE_C'], 
+        index: 1 // 조건을 만족하면 scripts[1]을 보여줌
+      }
+    ]
+  }
 ];
 
 /* 3. 데이터 전처리 (자동 정렬 및 ID 생성) */
