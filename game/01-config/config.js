@@ -1,6 +1,6 @@
 // setup 객체 정의
 /* 1. 설정 및 헬퍼 함수 */
-setup.timelineStartConf = { month: 12, day: 2, hour: 8, min: 0 }; // 시작 기준점
+setup.timelineStartConf = { hour: 8, min: 0 }; // 시작 기준점
 
 setup.formatTime = (h, m) => String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 setup.pad = (n) => String(n).padStart(2, '0');
@@ -8,29 +8,30 @@ setup.pad = (n) => String(n).padStart(2, '0');
 /* 2. 타임라인 데이터 입력 (순서 섞여도 OK, 시간만 정확히 입력하세요) */
 setup.rawTimeline = [
   {
-    month: 12, day: 2, hour: 8, min: 0,
+    hour: 8, min: 0,
     scripts: [
-      "[총성:12-02-08-15:0:(세면실) #CLUE_A]과 함께 기상한다... 침대에서 벗어나...",
+      "기상을 알리는 안내방송의 음악소리가 들려서 눈을 떴다. 하얀 천창에 은은한 무드등의 불빛이 비친다. 분명 꽤 오랫동안 지내왔음에도 이 방은 왠지 익숙해 지지가 않는다. 계속 [여행지:08-15 -> 1 #CLUE_A]에서 묵는 기분이다. '좋은 아침입니다. 환자 여러분. 오늘도 좋은하루 되세요!' 안내방송 아나운서의 상쾌한 목소리를 들으니 기분이 좋아진다. 복도에서 간호사 로봇의 발소리가 들린다. 곧 점호가 있기 때문에 나는 침대에서 일어나 익숙한 손놀림으로 이불을 갠다. 세면장으로 가서 차가운 물로 얼굴을 씻고 수건으로 물기를 닦는다. 슬리퍼를 신고 복도로 나오니 다른 방의 환자들도 다들 주섬주섬 나오는 모습이 보인다. 이 병동에서 아침마다 볼 수 있는 풍경이다. ",
       "나는 누구였지?"
     ]
   },
   {
-    month: 12, day: 2, hour: 8, min: 15,
+    hour: 8, min: 15,
     scripts: [
-      "문이 열린다. (세면실:12-02-08-30 -> 1 #CLUE_B)로 이동한다."
+      "내 맞은 편 방에서 자던 이름 모를 아저씨는 늦잠을 자는지 아직 나오지 않은 것 같다. 언젠가 [이름:08-30:0:(맥케이) #CLUE_B]을 들었던 거 같은데 까먹었을 수도 있다. 원래 여기는 그런 사람들만 모인 곳이여서 그런지 이름을 못 외우는 것은 아무도 뭐라하지 않는다. 대신 오른쪽 가슴에 단 이름표를 보고 대화하는게 예의다. 내 이름은 매튜. 성은 쓰여있지 않다. 고아이기 때문에 성이 없다고 줄곧 생각해 왔지만 최근엔 내가 언젠가 멀쩡히 있던 부모님의 존재까지 까먹었던 걸지도 모른다는 생각도 든다. 그런 생각을 하니 살짝 기분이 나빠지고 어서 이 병을 낫고 싶다는 생각이 강해진다.",
+      "첫번째."
     ]
   },
   {
-    month: 12, day: 2, hour: 8, min: 30,
+    hour: 8, min: 30,
     scripts: [
-      "아침 식사 시간. [대화:12-02-18-00 -> 1 #CLUE_C]는 금지되어 있다.", 
+      "복도에서 기다리고 있었더니 간호사장 로봇이 뚜벅뚜벅 걸어와 앞에 선다. '어젯밤의 퇴원자 명단을 발표하겠습니다. B동 208호 맥케이 환자 분.' 복도에 로봇의 기계음성이 울린다. 그것의 얼굴 부분에 달린 디스플레이에는 경쾌하게 웃는 얼굴이 표시되어 있다. '208호라면 내 맞은 편의 호실이군. 그 아저씨 이름이(맥케이:06-45->1)였나. 대화를 해본적이 없어서 몰랐네. 그나저나 퇴원이라니 부럽다. 밖에 나가면 먹고 싶은 음식들도 실컷 먹을 수 있을텐데...' 당사자는 이 자리에 없지만 다들 축하 박수를 치기 시작해서 나도 따라 친다.  발표가 끝나고 작은 간호사 로봇들이 간호사장 로봇의 옆으로 줄 맞춰서 들어오더니 각 환자의 앞에서 멈춘다. ", 
       "작은 속삭임이 오가지만..."
     ]
   },
   {
-    month: 12, day: 2, hour: 18, min: 0,
+    hour: 18, min: 0,
     scripts: [
-      "저녁 식사 시간. 평소와 다름 없다.",  // index 0 (기본)
+      "건강검진이 시작된다. 작은 로봇들이 환자의 옆구리에 부착된 파스 같은 디바이스에 손을 가져다 대고 건강에 이상이 있는지 확인하는 식으로 진행된다. 난 내 앞에 선 간호사 로봇에게 내 옆구리를 보여준다. 지이잉 하는 스캔소리. 15초 정도 후에 로봇이 말하길, '맥박 정상, 헐압정상, 호르몬 균형 양호. 메튜 환자님, 오늘도 건강하시네요!' 난 이곳에 와서 한번도 아파본적이 없고 건강을 유지하고 있다. 시설의 복지가 좋아서 그런거겠지. 내 주변 사람들도 심하게 아픈건 본적이 없다. 건강에 조금이라도 문제가 생길 것 같으면 매일 아침의 이 검사에서 미리 알려주고 식단과 활동을 조율해 주기 때문이다. 하지만 그런 시스템에서도 뇌의 질병은 쉽게 치료하지 못하는 것 같다. 여기 있는 사람들은 전부 '건망증' 때문에 치료를 받고 있는 것이다..",  // index 0 (기본)
       "저녁 식사 시간. 어라? 메뉴가 바뀌었다.", // index 1 (루프 1회차 이상)
       "저녁 식사 시간. 이제 이 맛도 지겹다."   // index 2 (루프 3회차 이상)
     ],
@@ -41,15 +42,15 @@ setup.rawTimeline = [
     ]
   },
   {
-    // 순서가 뒤섞여 있어도 상관없음 (예: 다음날 데이터)
-    month: 12, day: 3, hour: 12, min: 0,
+    // 순서가 뒤섞여 있어도 상관없음
+    hour: 12, min: 0,
     scripts: [
-      "다음날 점심시간입니다. 루프가 되었나요?",
+      "점심시간입니다. 루프가 되었나요?",
       "반복되는 하루..."
     ]
   },
   {
-    month: 12, day: 3, hour: 12, min: 30,
+    hour: 12, min: 30,
     scripts: [
       "배드 엔딩",
       "트루 엔딩!",
@@ -59,7 +60,7 @@ setup.rawTimeline = [
         // 이 3가지 플래그가 모두 window.__timelineFlags에 있어야 함
         // required: ['CLUE_A', 'CLUE_B'], 
         // required: ['CLUE_C'], 
-        required: ['CLUE_A','CLUE_B','CLUE_C'], 
+        required: ['CLUE_A', 'CLUE_B'], 
         index: 1 // 조건을 만족하면 scripts[1]을 보여줌
       }
     ]
@@ -69,31 +70,25 @@ setup.rawTimeline = [
 /* 3. 데이터 전처리 (자동 정렬 및 ID 생성) */
 setup.processTimeline = function() {
   const startObj = setup.timelineStartConf;
-  // 기준 시간 (연도는 임의로 2024 설정)
-  const startDate = new Date(2024, startObj.month - 1, startObj.day, startObj.hour, startObj.min);
+  const startMinutes = startObj.hour * 60 + startObj.min;
 
   // 데이터 가공
   setup.timeline = setup.rawTimeline.map(item => {
-    // 해당 아이템의 시간 객체
-    const itemDate = new Date(2024, item.month - 1, item.day, item.hour, item.min);
+    // 하루 기준 절대 분 계산 (시계 표시에 사용)
+    const totalMinutes = item.hour * 60 + item.min;
     
-    // 시작 시간과의 차이(분) 계산 -> 시계 로직용
-    const diffMs = itemDate - startDate;
-    // 00:00 기준 절대 분 계산 (시계 표시에 사용)
-    const totalMinutes = Math.floor(diffMs / 1000 / 60) + (startObj.hour * 60) + startObj.min;
+    // 고유 ID 생성 (Format: HH-mm) -> 링크용
+    const timeId = `${setup.pad(item.hour)}-${setup.pad(item.min)}`;
     
-    // 고유 ID 생성 (Format: MM-DD-HH-mm) -> 링크용
-    const timeId = `${setup.pad(item.month)}-${setup.pad(item.day)}-${setup.pad(item.hour)}-${setup.pad(item.min)}`;
-    
-    // 날짜 텍스트 (예: 12월 2일)
-    const dateText = `${item.month}월 ${item.day}일`;
+    // 정렬용 타임스탬프 (하루 기준, 분 단위)
+    const sortTime = totalMinutes;
 
     return {
       ...item,
       totalMinutes: totalMinutes, // 시계 계산용
       timeId: timeId,             // 링크 연결용 ID
-      dateText: dateText,         // 날짜 표시용
-      sortTime: itemDate.getTime() // 정렬용 타임스탬프
+      dateText: '',               // 날짜 텍스트 (사용 안 함)
+      sortTime: sortTime          // 정렬용 타임스탬프
     };
   });
 

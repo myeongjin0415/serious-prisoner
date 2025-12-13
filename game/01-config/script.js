@@ -112,7 +112,7 @@ window.initTimeline = function() {
 
   /* 액션 파싱 로직 */
   function setupActions() {
-    const timeIdPattern = "\\d{2}-\\d{2}-\\d{2}-\\d{2}";
+    const timeIdPattern = "\\d{2}-\\d{2}";
     const flagPattern = "(?:[:\\s]+#([a-zA-Z0-9_가-힣]+))?";
     const triggerRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern}):(\\d+):\\(([^\\)]+)\\)${flagPattern}\\]`, 'g');
     const activeRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern})\\s*->\\s*(\\d+)${flagPattern}\\]`, 'g');
