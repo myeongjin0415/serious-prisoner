@@ -200,3 +200,12 @@ html, body {
   align-items: center;
   justify-content: center;
 }
+
+/* 클릭 후 일반 텍스트로 변한 상태 */
+.timeline-executed {
+  color: rgba(255, 255, 255, 0.9);        /* 일반 텍스트와 동일한 흰색 */
+  text-decoration: none; /* 밑줄 제거 */
+  cursor: default;       /* 마우스 커서를 기본 화살표로 */
+  pointer-events: none;  /* 클릭 불가능하게 만듦 (확실한 비활성화) */
+  font-weight: normal;   /* 굵기 초기화 (필요시) */
+}
