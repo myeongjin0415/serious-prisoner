@@ -110,135 +110,199 @@ window.initTimeline = function() {
     setupActions();
   }
 
-  /* 액션 파싱 로직 */
-  function setupActions() {
-    const timeIdPattern = "\\d{2}-\\d{2}";
-    const flagPattern = "(?:\\s+#([a-zA-Z0-9_가-힣]+))?";
-    // 시간-스크립트 쌍 패턴: "08-15 -> 1" 또는 "08-15->1"
-    const timeScriptPair = `${timeIdPattern}\\s*->\\s*\\d+`;
-    // 여러 쌍 패턴: "08-15 -> 1, 08-30->2" (쉼표로 구분)
-    const multiplePairs = `${timeScriptPair}(?:,\\s*${timeScriptPair})*`;
-    
-    // 클릭 핸들러에서도 사용할 수 있도록 전역에 저장
-    window.__multiplePairsPattern = multiplePairs;
-    
-    const triggerRegex = new RegExp(`\\[([^\\[\\]:]+):(${timeIdPattern}):(\\d+):\\(([^\\)]+)\\)${flagPattern}\\]`, 'g');
-    const activeRegex = new RegExp(`\\[([^\\[\\]:]+):(${multiplePairs})${flagPattern}\\]`, 'g');
-    const inactiveRegex = new RegExp(`\\(([^\\[\\():]+):(${multiplePairs})${flagPattern}\\)`, 'g');
+ /* 액션 파싱 로직 (수정됨) */
+function setupActions() {
+  const timeIdPattern = "\\d{2}-\\d{2}";
+  const flagPattern = "(?:\\s+#([a-zA-Z0-9_가-힣]+))?";
   
-    // 시간-스크립트 문자열을 파싱하여 배열로 변환
-    function parseTargets(targetsStr) {
-      const pairs = targetsStr.split(',').map(s => s.trim());
-      return pairs.map(pair => {
-        const match = pair.match(/(\d{2}-\d{2})\s*->\s*(\d+)/);
-        if (match) {
-          return { timeId: match[1], scriptIdx: parseInt(match[2], 10) };
-        }
-        return null;
-      }).filter(Boolean);
-    }
-  
-    cells.forEach(cell => {
-      const textEl = cell.querySelector('.cell-text');
-      if (!textEl) return;
-      let html = textEl.textContent;
-  
-      html = html.replace(triggerRegex, (_, txt, timeId, sIdx, lbl, flagName) => {
-        const flagAttr = flagName ? `data-flag="${flagName}"` : '';
-        return `<span class="timeline-trigger" data-target-id="${timeId}" data-script-idx="${sIdx}" data-label="${lbl}" ${flagAttr}>${txt}</span>`;
-      });
-      html = html.replace(activeRegex, (_, txt, targetsStr, flagName) => {
-        const targets = parseTargets(targetsStr);
-        const targetsJson = encodeURIComponent(JSON.stringify(targets));
-        const flagAttr = flagName ? `data-flag="${flagName}"` : '';
-        return `<span class="timeline-action active" data-targets="${targetsJson}" ${flagAttr}>${txt}</span>`;
-      });
-      html = html.replace(inactiveRegex, (_, txt, targetsStr, flagName) => {
-        const targets = parseTargets(targetsStr);
-        const targetsJson = encodeURIComponent(JSON.stringify(targets));
-        const flagAttr = flagName ? `data-flag="${flagName}"` : '';
-        return `<span class="timeline-action inactive" data-targets="${targetsJson}" data-label="${txt}" ${flagAttr}>${txt}</span>`;
-      });
-  
-      if (html !== textEl.textContent) textEl.innerHTML = html;
+  // 1. 기존 액션(Active/Inactive)용 패턴: "08-15 -> 1"
+  const timeScriptPair = `${timeIdPattern}\\s*->\\s*\\d+`;
+  const multiplePairs = `${timeScriptPair}(?:,\\s*${timeScriptPair})*`;
+  window.__multiplePairsPattern = multiplePairs; // 전역 저장
+
+  // 2. 트리거 타겟용 패턴 (새로 추가): "13-15:1:(라벨)"
+  // 형식: 시간ID:인덱스:(라벨)
+  const triggerTargetPattern = `${timeIdPattern}:\\d+:\\([^\\)]+\\)`;
+  // 여러 개 허용: "타겟1, 타겟2, 타겟3"
+  const multipleTriggerTargets = `${triggerTargetPattern}(?:,\\s*${triggerTargetPattern})*`;
+
+  // 정규식 정의
+  // 그룹 1: 텍스트, 그룹 2: 타겟목록(문자열), 그룹 3: 플래그
+  const triggerRegex = new RegExp(`\\[([^\\[\\]:]+):(${multipleTriggerTargets})\\s*${flagPattern}\\]`, 'g');
+  const activeRegex = new RegExp(`\\[([^\\[\\]:]+):(${multiplePairs})${flagPattern}\\]`, 'g');
+  const inactiveRegex = new RegExp(`\\(([^\\[\\():]+):(${multiplePairs})${flagPattern}\\)`, 'g');
+
+  // 트리거 타겟 문자열 파싱 함수 ("13-15:1:(A), 13-20:2:(B)" -> 객체 배열)
+  function parseTriggerTargets(targetsStr) {
+    const list = targetsStr.split(',').map(s => s.trim());
+    return list.map(item => {
+      // "13-15:1:(메아리)" 형식 파싱
+      const match = item.match(/(\d{2}-\d{2}):(\d+):\(([^)]+)\)/);
+      if (match) {
+        return {
+          timeId: match[1],
+          scriptIdx: parseInt(match[2], 10),
+          label: match[3]
+        };
+      }
+      return null;
+    }).filter(Boolean);
+  }
+
+  // 액션 타겟 문자열 파싱 함수
+  function parseActionTargets(targetsStr) {
+    const pairs = targetsStr.split(',').map(s => s.trim());
+    return pairs.map(pair => {
+      const match = pair.match(/(\d{2}-\d{2})\s*->\s*(\d+)/);
+      if (match) {
+        return { timeId: match[1], scriptIdx: parseInt(match[2], 10) };
+      }
+      return null;
+    }).filter(Boolean);
+  }
+
+  cells.forEach(cell => {
+    const textEl = cell.querySelector('.cell-text');
+    if (!textEl) return;
+    let html = textEl.textContent;
+
+    // 트리거 치환 (JSON으로 데이터 저장)
+    html = html.replace(triggerRegex, (_, txt, targetsStr, flagName) => {
+      const targets = parseTriggerTargets(targetsStr);
+      const targetsJson = encodeURIComponent(JSON.stringify(targets));
+      const flagAttr = flagName ? `data-flag="${flagName}"` : '';
+      // data-triggers 속성에 배열 저장
+      return `<span class="timeline-trigger" data-triggers="${targetsJson}" ${flagAttr}>${txt}</span>`;
     });
-  
-    container.onclick = function(e) {
-      const trigger = e.target.closest('.timeline-trigger');
-      const activeAction = e.target.closest('.timeline-action.active');
-      const inactiveAction = e.target.closest('.timeline-action.inactive');
-      const action = activeAction || inactiveAction;
-      const target = trigger || action;
-  
-      if (!target) return;
-      e.preventDefault(); e.stopPropagation();
-  
-      const flagName = target.getAttribute('data-flag');
-      let flagAcquired = false;
-  
-      if (flagName) {
-          window.__timelineFlags = window.__timelineFlags || new Set();
-          if (!window.__timelineFlags.has(flagName)) {
-            window.__timelineFlags.add(flagName);
-            flagAcquired = true;
-          }
-      }
-      
-      if (flagAcquired) {
-         updateContentByLoop();
-      }
-  
-      if (trigger) {
-        // 트리거 처리 (기존 로직 유지)
-        const targetId = target.getAttribute('data-target-id');
-        const scriptIdx = parseInt(target.getAttribute('data-script-idx'), 10);
-        const label = target.getAttribute('data-label');
-        const dataItem = setup.timeline.find(item => item.timeId === targetId);
-        if (!dataItem || !dataItem.scripts[scriptIdx]) return;
-        
-        const targetScript = dataItem.scripts[scriptIdx];
-        const timeIdPatternLocal = "\\d{2}-\\d{2}";
-        const timeScriptPairLocal = `${timeIdPatternLocal}\\s*->\\s*\\d+`;
-        const multiplePairsPattern = `${timeScriptPairLocal}(?:,\\s*${timeScriptPairLocal})*`;
-        const pattern = new RegExp(`\\(${label}:(${multiplePairsPattern})(?:\\s+#([a-zA-Z0-9_가-힣]+))?\\)`);
-        
-        const newScript = targetScript.replace(pattern, function(match, targetsStr, nextFlag) {
-            const flagPart = nextFlag ? ` #${nextFlag}` : '';
-            return `[${label}:${targetsStr}${flagPart}]`;
-        });
-        
-        if (newScript !== targetScript) {
-          dataItem.scripts[scriptIdx] = newScript;
-          const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
-          if(targetCell) targetCell.querySelector('.cell-text').textContent = newScript;
-          setupActions(); 
+
+    // Active 액션 치환
+    html = html.replace(activeRegex, (_, txt, targetsStr, flagName) => {
+      const targets = parseActionTargets(targetsStr);
+      const targetsJson = encodeURIComponent(JSON.stringify(targets));
+      const flagAttr = flagName ? `data-flag="${flagName}"` : '';
+      return `<span class="timeline-action active" data-targets="${targetsJson}" ${flagAttr}>${txt}</span>`;
+    });
+
+    // Inactive 액션 치환
+    html = html.replace(inactiveRegex, (_, txt, targetsStr, flagName) => {
+      const targets = parseActionTargets(targetsStr);
+      const targetsJson = encodeURIComponent(JSON.stringify(targets));
+      const flagAttr = flagName ? `data-flag="${flagName}"` : '';
+      return `<span class="timeline-action inactive" data-targets="${targetsJson}" data-label="${txt}" ${flagAttr}>${txt}</span>`;
+    });
+
+    if (html !== textEl.textContent) textEl.innerHTML = html;
+  });
+
+  // (onclick 핸들러는 아래에서 별도로 설명)
+  attachClickHandler(); 
+}
+
+function attachClickHandler() {
+  const container = document.getElementById('timeline');
+  if (!container) return;
+
+  container.onclick = function(e) {
+    const trigger = e.target.closest('.timeline-trigger');
+    const activeAction = e.target.closest('.timeline-action.active');
+    const inactiveAction = e.target.closest('.timeline-action.inactive');
+    const action = activeAction || inactiveAction;
+    const target = trigger || action;
+
+    if (!target) return;
+    e.preventDefault(); e.stopPropagation();
+
+    // 플래그 획득 로직 (공통)
+    const flagName = target.getAttribute('data-flag');
+    let flagAcquired = false;
+    if (flagName) {
+        window.__timelineFlags = window.__timelineFlags || new Set();
+        if (!window.__timelineFlags.has(flagName)) {
+          window.__timelineFlags.add(flagName);
+          flagAcquired = true;
         }
-      } else if (action) {
-        // inactive 액션 처리: 여러 타겟 변경 + inactive를 active로 변환
-        if (inactiveAction) {
+    }
+    if (flagAcquired) {
+       updateContentByLoop();
+    }
+
+    // ★★★ [수정된 부분] 트리거 처리 로직 ★★★
+    if (trigger) {
+      const triggersJson = trigger.getAttribute('data-triggers');
+      if (!triggersJson) return;
+
+      try {
+          const targets = JSON.parse(decodeURIComponent(triggersJson));
+          
+          // 배열을 순회하며 모든 타겟을 처리
+          targets.forEach(targetItem => {
+              const targetId = targetItem.timeId;
+              const scriptIdx = targetItem.scriptIdx;
+              const label = targetItem.label;
+
+              const dataItem = setup.timeline.find(item => item.timeId === targetId);
+              if (!dataItem || !dataItem.scripts[scriptIdx]) return;
+
+              const targetScript = dataItem.scripts[scriptIdx];
+              
+              // 타겟 스크립트 내에서 (Label:...) 패턴을 찾아 [Label:...]로 변경
+              // 패턴: (Label: 00-00->0, 00-00->1 #Flag)
+              const timeIdPatternLocal = "\\d{2}-\\d{2}";
+              const timeScriptPairLocal = `${timeIdPatternLocal}\\s*->\\s*\\d+`;
+              const multiplePairsPattern = `${timeScriptPairLocal}(?:,\\s*${timeScriptPairLocal})*`;
+              
+              // 주의: label 변수를 정규식에 넣을 때 특수문자 이스케이프가 필요할 수 있으나, 
+              // 여기선 한글/영문 숫자 위주라고 가정.
+              const pattern = new RegExp(`\\(${label}:(${multiplePairsPattern})(?:\\s+#([a-zA-Z0-9_가-힣]+))?\\)`);
+              
+              const newScript = targetScript.replace(pattern, function(match, targetsStr, nextFlag) {
+                  const flagPart = nextFlag ? ` #${nextFlag}` : '';
+                  return `[${label}:${targetsStr}${flagPart}]`;
+              });
+              
+              if (newScript !== targetScript) {
+                dataItem.scripts[scriptIdx] = newScript;
+                const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
+                if(targetCell) {
+                    // 현재 화면에 렌더링된 인덱스와 일치하는지 확인 후 업데이트
+                    const currentIdx = parseInt(targetCell.getAttribute('data-current-script-idx') || 0);
+                    if (currentIdx === scriptIdx) {
+                        targetCell.querySelector('.cell-text').textContent = newScript;
+                    }
+                }
+              }
+          });
+
+          // 모든 변경이 끝난 후, 화면의 액션 링크들을 다시 파싱하여 활성화
+          setupActions();
+
+      } catch (err) {
+          console.error("Trigger parse error:", err);
+      }
+
+    } else if (action) {
+      // ... (기존 액션 처리 로직 유지 - 변경 없음) ...
+      // inactiveAction 처리 부분과 activeAction 처리 부분은 기존 코드를 그대로 두시면 됩니다.
+      // 다만 위에서 setupActions()를 호출하고 있으므로, 함수 분리가 안 되어 있다면 
+      // 기존 코드의 action 처리 로직을 그대로 유지해 주세요.
+      
+      // (편의를 위해 action 처리 부분도 아래에 붙여둡니다)
+      if (inactiveAction) {
           const label = inactiveAction.getAttribute('data-label');
           const targetsJson = inactiveAction.getAttribute('data-targets');
-          
           if (!label || !targetsJson) return;
-          
           try {
             const targets = JSON.parse(decodeURIComponent(targetsJson));
-            
-            // 여러 타겟의 스크립트 변경
             targets.forEach(targetInfo => {
               const dataItem = setup.timeline.find(item => item.timeId === targetInfo.timeId);
               if (dataItem && dataItem.scripts[targetInfo.scriptIdx]) {
                 const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetInfo.timeId}"]`);
                 if(targetCell) {
-                  const cellTextEl = targetCell.querySelector('.cell-text');
-                  if (cellTextEl) {
-                    cellTextEl.textContent = dataItem.scripts[targetInfo.scriptIdx];
-                  }
+                    const cellTextEl = targetCell.querySelector('.cell-text');
+                    if (cellTextEl) cellTextEl.textContent = dataItem.scripts[targetInfo.scriptIdx];
                 }
               }
             });
-            
-            // 모든 타겟 셀에서 (label:...) 형식을 [label:...] 형식으로 변환
             const timeIdPatternLocal = "\\d{2}-\\d{2}";
             const timeScriptPairLocal = `${timeIdPatternLocal}\\s*->\\s*\\d+`;
             const multiplePairsPattern = `${timeScriptPairLocal}(?:,\\s*${timeScriptPairLocal})*`;
@@ -252,65 +316,57 @@ window.initTimeline = function() {
                   const flagPart = nextFlag ? ` #${nextFlag}` : '';
                   return `[${label}:${targetsStr}${flagPart}]`;
                 });
-                
                 if (newScript !== targetScript) {
                   dataItem.scripts[targetInfo.scriptIdx] = newScript;
                   const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetInfo.timeId}"]`);
                   if(targetCell) {
-                    const cellTextEl = targetCell.querySelector('.cell-text');
-                    if (cellTextEl) {
-                      cellTextEl.textContent = newScript;
-                    }
+                     const currentIdx = parseInt(targetCell.getAttribute('data-current-script-idx') || 0);
+                     if (currentIdx === targetInfo.scriptIdx) {
+                         targetCell.querySelector('.cell-text').textContent = newScript;
+                     }
                   }
                 }
               }
             });
-            
             setupActions();
-          } catch (err) {
-            console.error('Failed to parse targets:', err);
-          }
+          } catch (err) { console.error(err); }
           return;
-        }
-        
-        // 활성 링크 처리 (여러 타겟 지원)
-        const targetsJson = target.getAttribute('data-targets');
-        if (!targetsJson) {
-          // 기존 단일 타겟 형식 지원 (하위 호환)
-          const targetId = target.getAttribute('data-target-id');
-          const scriptIdx = parseInt(target.getAttribute('data-script-idx'), 10);
-          if (targetId && !isNaN(scriptIdx)) {
-            const dataItem = setup.timeline.find(item => item.timeId === targetId);
-            if (dataItem && dataItem.scripts[scriptIdx]) {
-              const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
-              if(targetCell) {
-                targetCell.querySelector('.cell-text').textContent = dataItem.scripts[scriptIdx];
-                setupActions();
-              }
-            }
-          }
-          return;
-        }
-        
-        try {
-          const targets = JSON.parse(decodeURIComponent(targetsJson));
-          // 여러 타겟에 대해 모두 처리
-          targets.forEach(targetInfo => {
-            const dataItem = setup.timeline.find(item => item.timeId === targetInfo.timeId);
-            if (dataItem && dataItem.scripts[targetInfo.scriptIdx]) {
-              const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetInfo.timeId}"]`);
-              if(targetCell) {
-                targetCell.querySelector('.cell-text').textContent = dataItem.scripts[targetInfo.scriptIdx];
-              }
-            }
-          });
-          setupActions();
-        } catch (err) {
-          console.error('Failed to parse targets:', err);
-        }
       }
-    };
-  }
+
+      // Active Action
+      const targetsJson = target.getAttribute('data-targets');
+      if (!targetsJson) {
+         // 하위 호환성 (단일 타겟)
+         const targetId = target.getAttribute('data-target-id');
+         const scriptIdx = parseInt(target.getAttribute('data-script-idx'), 10);
+         if (targetId && !isNaN(scriptIdx)) {
+           const dataItem = setup.timeline.find(item => item.timeId === targetId);
+           if (dataItem && dataItem.scripts[scriptIdx]) {
+             const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
+             if(targetCell) {
+                 targetCell.querySelector('.cell-text').textContent = dataItem.scripts[scriptIdx];
+                 setupActions();
+             }
+           }
+         }
+         return;
+      }
+      try {
+        const targets = JSON.parse(decodeURIComponent(targetsJson));
+        targets.forEach(targetInfo => {
+          const dataItem = setup.timeline.find(item => item.timeId === targetInfo.timeId);
+          if (dataItem && dataItem.scripts[targetInfo.scriptIdx]) {
+            const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetInfo.timeId}"]`);
+            if(targetCell) {
+               targetCell.querySelector('.cell-text').textContent = dataItem.scripts[targetInfo.scriptIdx];
+            }
+          }
+        });
+        setupActions();
+      } catch (err) { console.error(err); }
+    }
+  };
+}
   
   updateContentByLoop(); 
 
