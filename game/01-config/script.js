@@ -204,12 +204,17 @@ function attachClickHandler() {
 
   container.onclick = function(e) {
     const trigger = e.target.closest('.timeline-trigger');
+    
+    // [수정 1] 오직 'active' 상태인 액션만 찾습니다. ('inactive'는 무시)
     const activeAction = e.target.closest('.timeline-action.active');
-    const inactiveAction = e.target.closest('.timeline-action.inactive');
-    const action = activeAction || inactiveAction;
+    
+    // [수정 2] action 변수에는 activeAction만 할당됩니다.
+    const action = activeAction; 
     const target = trigger || action;
 
+    // target이 없으면(즉, inactive를 클릭했거나 빈 공간 클릭 시) 아무 일도 안 함
     if (!target) return;
+    
     e.preventDefault(); e.stopPropagation();
 
     // 플래그 획득 로직 (공통)
@@ -226,7 +231,7 @@ function attachClickHandler() {
        updateContentByLoop();
     }
 
-    // ★★★ [수정된 부분] 트리거 처리 로직 ★★★
+    // 1. 트리거(해금 버튼) 처리 로직
     if (trigger) {
       const triggersJson = trigger.getAttribute('data-triggers');
       if (!triggersJson) return;
@@ -234,7 +239,6 @@ function attachClickHandler() {
       try {
           const targets = JSON.parse(decodeURIComponent(triggersJson));
           
-          // 배열을 순회하며 모든 타겟을 처리
           targets.forEach(targetItem => {
               const targetId = targetItem.timeId;
               const scriptIdx = targetItem.scriptIdx;
@@ -245,14 +249,11 @@ function attachClickHandler() {
 
               const targetScript = dataItem.scripts[scriptIdx];
               
-              // 타겟 스크립트 내에서 (Label:...) 패턴을 찾아 [Label:...]로 변경
-              // 패턴: (Label: 00-00->0, 00-00->1 #Flag)
+              // (Label:...) -> [Label:...] 변환 패턴
               const timeIdPatternLocal = "\\d{2}-\\d{2}";
               const timeScriptPairLocal = `${timeIdPatternLocal}\\s*->\\s*\\d+`;
               const multiplePairsPattern = `${timeScriptPairLocal}(?:,\\s*${timeScriptPairLocal})*`;
               
-              // 주의: label 변수를 정규식에 넣을 때 특수문자 이스케이프가 필요할 수 있으나, 
-              // 여기선 한글/영문 숫자 위주라고 가정.
               const pattern = new RegExp(`\\(${label}:(${multiplePairsPattern})(?:\\s+#([a-zA-Z0-9_가-힣]+))?\\)`);
               
               const newScript = targetScript.replace(pattern, function(match, targetsStr, nextFlag) {
@@ -264,7 +265,6 @@ function attachClickHandler() {
                 dataItem.scripts[scriptIdx] = newScript;
                 const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
                 if(targetCell) {
-                    // 현재 화면에 렌더링된 인덱스와 일치하는지 확인 후 업데이트
                     const currentIdx = parseInt(targetCell.getAttribute('data-current-script-idx') || 0);
                     if (currentIdx === scriptIdx) {
                         targetCell.querySelector('.cell-text').textContent = newScript;
@@ -272,71 +272,20 @@ function attachClickHandler() {
                 }
               }
           });
-
-          // 모든 변경이 끝난 후, 화면의 액션 링크들을 다시 파싱하여 활성화
           setupActions();
 
       } catch (err) {
           console.error("Trigger parse error:", err);
       }
 
-    } else if (action) {
-      // ... (기존 액션 처리 로직 유지 - 변경 없음) ...
-      // inactiveAction 처리 부분과 activeAction 처리 부분은 기존 코드를 그대로 두시면 됩니다.
-      // 다만 위에서 setupActions()를 호출하고 있으므로, 함수 분리가 안 되어 있다면 
-      // 기존 코드의 action 처리 로직을 그대로 유지해 주세요.
-      
-      // (편의를 위해 action 처리 부분도 아래에 붙여둡니다)
-      if (inactiveAction) {
-          const label = inactiveAction.getAttribute('data-label');
-          const targetsJson = inactiveAction.getAttribute('data-targets');
-          if (!label || !targetsJson) return;
-          try {
-            const targets = JSON.parse(decodeURIComponent(targetsJson));
-            targets.forEach(targetInfo => {
-              const dataItem = setup.timeline.find(item => item.timeId === targetInfo.timeId);
-              if (dataItem && dataItem.scripts[targetInfo.scriptIdx]) {
-                const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetInfo.timeId}"]`);
-                if(targetCell) {
-                    const cellTextEl = targetCell.querySelector('.cell-text');
-                    if (cellTextEl) cellTextEl.textContent = dataItem.scripts[targetInfo.scriptIdx];
-                }
-              }
-            });
-            const timeIdPatternLocal = "\\d{2}-\\d{2}";
-            const timeScriptPairLocal = `${timeIdPatternLocal}\\s*->\\s*\\d+`;
-            const multiplePairsPattern = `${timeScriptPairLocal}(?:,\\s*${timeScriptPairLocal})*`;
-            const pattern = new RegExp(`\\(${label}:(${multiplePairsPattern})(?:\\s+#([a-zA-Z0-9_가-힣]+))?\\)`, 'g');
-            
-            targets.forEach(targetInfo => {
-              const dataItem = setup.timeline.find(item => item.timeId === targetInfo.timeId);
-              if (dataItem && dataItem.scripts[targetInfo.scriptIdx]) {
-                const targetScript = dataItem.scripts[targetInfo.scriptIdx];
-                const newScript = targetScript.replace(pattern, function(match, targetsStr, nextFlag) {
-                  const flagPart = nextFlag ? ` #${nextFlag}` : '';
-                  return `[${label}:${targetsStr}${flagPart}]`;
-                });
-                if (newScript !== targetScript) {
-                  dataItem.scripts[targetInfo.scriptIdx] = newScript;
-                  const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetInfo.timeId}"]`);
-                  if(targetCell) {
-                     const currentIdx = parseInt(targetCell.getAttribute('data-current-script-idx') || 0);
-                     if (currentIdx === targetInfo.scriptIdx) {
-                         targetCell.querySelector('.cell-text').textContent = newScript;
-                     }
-                  }
-                }
-              }
-            });
-            setupActions();
-          } catch (err) { console.error(err); }
-          return;
-      }
-
-      // Active Action
+    } 
+    // 2. 액션(즉시 실행) 처리 로직
+    // [수정 3] inactiveAction 처리 로직을 완전히 삭제했으므로, 여기는 activeAction일 때만 실행됩니다.
+    else if (action) {
       const targetsJson = target.getAttribute('data-targets');
+      
+      // 구버전(단일 타겟) 하위 호환
       if (!targetsJson) {
-         // 하위 호환성 (단일 타겟)
          const targetId = target.getAttribute('data-target-id');
          const scriptIdx = parseInt(target.getAttribute('data-script-idx'), 10);
          if (targetId && !isNaN(scriptIdx)) {
@@ -351,6 +300,8 @@ function attachClickHandler() {
          }
          return;
       }
+
+      // 신버전(다중 타겟) 처리
       try {
         const targets = JSON.parse(decodeURIComponent(targetsJson));
         targets.forEach(targetInfo => {
