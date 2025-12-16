@@ -361,8 +361,6 @@ function attachClickHandler() {
 
   let isAutoScrolling = false;
   
-  // ★ [수정 4] 600ms 후 실행될 때도, 이전에 예약된 초기화 타임아웃이 있다면 클리어 로직 필요하지만,
-  // 여기서는 간단히 로직 내부에서 타이머를 전역변수에 할당하는 것으로 처리
   setTimeout(() => {
     isAutoScrolling = true; 
     let preciseScrollTop = container.scrollTop;
@@ -370,21 +368,35 @@ function attachClickHandler() {
     window.__scrollTimer = setInterval(() => {
       if (!isAutoScrolling) return;
 
+      // 스크롤 위치 보정 (사용자가 강제로 스크롤했을 때 튐 방지)
       if (Math.abs(container.scrollTop - preciseScrollTop) > 1) {
         preciseScrollTop = container.scrollTop;
       }
 
+      // ★★★ [수정됨] 바닥에 닿았을 때 루프 초기화 로직 복구 ★★★
       if (container.scrollTop + container.clientHeight >= container.scrollHeight - 5) {
-        // ... (루프 초기화 로직 생략, 기존 동일) ...
+        // 1. 루프 카운트 증가
+        window.__timelineLoopCount++;
+        
+        // 2. 화면에 루프 횟수 업데이트 (함수가 스코프 내에 있어야 함)
+        const loopEl = document.getElementById('clock-loop-count');
+        if (loopEl) loopEl.textContent = '루프: ' + window.__timelineLoopCount;
+        
+        // 3. 스크롤 위치 0으로 초기화
+        container.scrollTop = 0;
+        preciseScrollTop = 0;
+        
+        // 4. 새로운 루프에 맞춰 내용 갱신
+        updateContentByLoop();
+        window.updateClock(cells, container);
+        
       } else {
-        // ★ [여기가 핵심 수정] 전역 변수를 더하도록 변경
+        // 평소 주행 (속도 변수 적용)
         preciseScrollTop += window.__scrollSpeed; 
         container.scrollTop = preciseScrollTop;
       }
     }, 16);
     
-    // updateClock용 인터벌은 부하가 적어 놔둘 수도 있지만, 동일하게 관리 권장
-    // 여기서는 일단 생략
     setInterval(() => { if (isAutoScrolling) window.updateClock(cells, container); }, 100);
   }, 600);
 };
