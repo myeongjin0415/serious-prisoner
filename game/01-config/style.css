@@ -209,3 +209,71 @@ html, body {
   pointer-events: none;  /* 클릭 불가능하게 만듦 (확실한 비활성화) */
   font-weight: normal;   /* 굵기 초기화 (필요시) */
 }
+
+/* 속도 조절 UI 디자인 */
+.speed-control-container {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.speed-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  font-weight: bold;
+  opacity: 0.5; /* 은은하게 처리 */
+  text-transform: uppercase;
+}
+
+.speed-capsule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.05); /* 아주 연한 배경 */
+  border: 1px solid rgba(0, 0, 0, 0.2); /* 얇은 테두리 */
+  border-radius: 20px; /* 둥근 캡슐 모양 */
+  padding: 2px 4px;
+  width: 100px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* 숫자 표시부 */
+.speed-display {
+  font-family: "Courier New", monospace; /* 숫자가 흔들리지 않게 고정폭 폰트 */
+  font-weight: bold;
+  font-size: 14px;
+  text-align: center;
+  width: 40px;
+  user-select: none; /* 드래그 방지 */
+}
+
+/* 버튼 공통 스타일 */
+.speed-btn {
+  background: transparent;
+  border: none;
+  color: inherit; /* 부모 폰트 색상 따라가기 */
+  font-weight: bold;
+  font-size: 16px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+
+/* 버튼 호버 효과 */
+.speed-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.speed-btn:active {
+  background: rgba(0, 0, 0, 0.2);
+  transform: scale(0.95);
+}

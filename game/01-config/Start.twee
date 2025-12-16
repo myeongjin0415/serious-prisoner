@@ -38,5 +38,13 @@ Prisoner Prototype
     <div class="clock-date" id="clock-date">12월 2일</div>
     <div class="clock-time" id="clock-time">08:00</div>
     <div class="clock-loop-count" id="clock-loop-count">루프: 0</div>
+    <div class="speed-control-container">
+      <div class="speed-label">PLAY SPEED</div>
+      <div class="speed-capsule">
+        <button class="speed-btn" onclick="window.adjustSpeed(-0.1)">−</button>
+        <span id="speed-value" class="speed-display">0.6</span>
+        <button class="speed-btn" onclick="window.adjustSpeed(0.1)">+</button>
+      </div>
+    </div>
   </div>
 </div>

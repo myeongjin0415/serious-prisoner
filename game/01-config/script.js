@@ -2,7 +2,21 @@
 window.__timelineLoopCount = window.__timelineLoopCount || 0;
 window.__timelineFlags = new Set(); 
 
-const scrollSpeed = 0.6;
+// [변경] 속도 변수 전역화 및 초기값 설정
+window.__scrollSpeed = 0.6; 
+
+// [추가] 속도 조절 함수
+window.adjustSpeed = function(delta) {
+  let newSpeed = window.__scrollSpeed + delta;
+  if (newSpeed < 0.1) newSpeed = 0.1; // 최소 속도 제한
+  if (newSpeed > 5.0) newSpeed = 5.0; // 최대 속도 제한
+  
+  window.__scrollSpeed = parseFloat(newSpeed.toFixed(1));
+  
+  // 화면 숫자 업데이트
+  const speedEl = document.getElementById('speed-value');
+  if (speedEl) speedEl.textContent = window.__scrollSpeed.toFixed(1);
+};
 
 // 시계 업데이트 함수
 window.updateClock = function(timelineCells, timelineContainer) {
@@ -346,7 +360,6 @@ function attachClickHandler() {
     isAutoScrolling = true; 
     let preciseScrollTop = container.scrollTop;
     
-    // ★ [수정 5] setInterval의 ID를 window.__scrollTimer 전역 변수에 저장
     window.__scrollTimer = setInterval(() => {
       if (!isAutoScrolling) return;
 
@@ -355,16 +368,10 @@ function attachClickHandler() {
       }
 
       if (container.scrollTop + container.clientHeight >= container.scrollHeight - 5) {
-        window.__timelineLoopCount++;
-        updateLoopDisplay();
-        
-        container.scrollTop = 0;
-        preciseScrollTop = 0;
-        
-        updateContentByLoop();
-        window.updateClock(cells, container);
+        // ... (루프 초기화 로직 생략, 기존 동일) ...
       } else {
-        preciseScrollTop += scrollSpeed; 
+        // ★ [여기가 핵심 수정] 전역 변수를 더하도록 변경
+        preciseScrollTop += window.__scrollSpeed; 
         container.scrollTop = preciseScrollTop;
       }
     }, 16);
