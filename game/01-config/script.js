@@ -133,9 +133,10 @@ window.initTimeline = function() {
     setupActions();
   }
 
-/* 액션 파싱 로직 (수정됨: 원본 문자열 저장 기능 추가) */
+/* 액션 파싱 로직 (수정됨: 플래그가 텍스트에 포함되는 문제 해결) */
 function setupActions() {
   const timeIdPattern = "\\d{2}-\\d{2}";
+  // 플래그 패턴 (앞에 공백 필수)
   const flagPattern = "(?:\\s+#([a-zA-Z0-9_가-힣]+))?";
   
   const timeScriptPair = `${timeIdPattern}\\s*->\\s*\\d+`;
@@ -145,12 +146,17 @@ function setupActions() {
   const triggerTargetPattern = `${timeIdPattern}:\\d+:\\([^\\)]+\\)`;
   const multipleTriggerTargets = `${triggerTargetPattern}(?:,\\s*${triggerTargetPattern})*`;
 
-  // 정규식 정의
-  const triggerRegex = new RegExp(`\\[([^\\[\\]:]+):(${multipleTriggerTargets})\\s*${flagPattern}\\]`, 'g');
-  const activeRegex = new RegExp(`\\[([^\\[\\]:]+):(${multiplePairs})${flagPattern}\\]`, 'g');
+  // [수정 1] triggerRegex: 텍스트 부분([^\\[\\]:]+) 뒤에 ?를 붙여서 Lazy(최소 매칭) 모드로 변경
+  const triggerRegex = new RegExp(`\\[([^\\[\\]:]+?):(${multipleTriggerTargets})\\s*${flagPattern}\\]`, 'g');
+  
+  // [수정 2] activeRegex: 텍스트 부분([^\\[\\]:]+) 뒤에 ?를 붙여서 Lazy(최소 매칭) 모드로 변경
+  // 이렇게 해야 뒤에 나오는 #플래그를 텍스트에 포함시키지 않고 분리해냅니다.
+  const activeRegex = new RegExp(`\\[([^\\[\\]:]+?)(?::(${multiplePairs}))?${flagPattern}\\]`, 'g');
+  
   const inactiveRegex = new RegExp(`\\(([^\\[\\():]+):(${multiplePairs})${flagPattern}\\)`, 'g');
 
   function parseTriggerTargets(targetsStr) {
+    if (!targetsStr) return [];
     const list = targetsStr.split(',').map(s => s.trim());
     return list.map(item => {
       const match = item.match(/(\d{2}-\d{2}):(\d+):\(([^)]+)\)/);
@@ -160,6 +166,7 @@ function setupActions() {
   }
 
   function parseActionTargets(targetsStr) {
+    if (!targetsStr) return [];
     const pairs = targetsStr.split(',').map(s => s.trim());
     return pairs.map(pair => {
       const match = pair.match(/(\d{2}-\d{2})\s*->\s*(\d+)/);
@@ -173,27 +180,26 @@ function setupActions() {
     if (!textEl) return;
     let html = textEl.textContent;
 
-    // ★ 핵심 수정: match(전체 문자열)를 data-full-string에 저장합니다.
-    
     // 1. 트리거 치환
     html = html.replace(triggerRegex, (match, txt, targetsStr, flagName) => {
       const targets = parseTriggerTargets(targetsStr);
       const targetsJson = encodeURIComponent(JSON.stringify(targets));
       const flagAttr = flagName ? `data-flag="${flagName}"` : '';
-      const safeMatch = match.replace(/"/g, '&quot;'); // 따옴표 안전 처리
+      const safeMatch = match.replace(/"/g, '&quot;'); 
       return `<span class="timeline-trigger" data-triggers="${targetsJson}" data-full-string="${safeMatch}" ${flagAttr}>${txt}</span>`;
     });
 
     // 2. Active 액션 치환
     html = html.replace(activeRegex, (match, txt, targetsStr, flagName) => {
-      const targets = parseActionTargets(targetsStr);
+      const targets = targetsStr ? parseActionTargets(targetsStr) : [];
       const targetsJson = encodeURIComponent(JSON.stringify(targets));
       const flagAttr = flagName ? `data-flag="${flagName}"` : '';
       const safeMatch = match.replace(/"/g, '&quot;');
+      
       return `<span class="timeline-action active" data-targets="${targetsJson}" data-full-string="${safeMatch}" ${flagAttr}>${txt}</span>`;
     });
 
-    // 3. Inactive 액션 치환 (클릭 불가하지만 형태 유지를 위해)
+    // 3. Inactive 액션 치환
     html = html.replace(inactiveRegex, (_, txt, targetsStr, flagName) => {
       const targets = parseActionTargets(targetsStr);
       const targetsJson = encodeURIComponent(JSON.stringify(targets));
@@ -206,6 +212,7 @@ function setupActions() {
 
   attachClickHandler(); 
 }
+
 
 /* 클릭 핸들러 (수정됨: 페이지 번호 동기화 버그 수정) */
 function attachClickHandler() {
