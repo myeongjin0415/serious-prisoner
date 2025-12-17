@@ -12,9 +12,7 @@ Prisoner Prototype
 
 :: TitleScreen
 <div class="title-container">
-  <div class="main-title-wrapper">
-    <h1 class="game-title fade-in">안락한 나날들</h1>
-  </div>
+    <img src="./images/title.png" alt="안락한 나날들" class="title-image">
   
   <div class="start-btn-container">
     <<button "시작하기">>
