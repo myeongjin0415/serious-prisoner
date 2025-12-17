@@ -75,8 +75,8 @@ Prisoner Prototype
     </div>
 
     <div class="sys-center">
+      <div class="clock-date" id="clock-date">12월 2일</div>
       <div class="clock-time" id="clock-time">08:00</div>
-      <div class="clock-loop-count" id="clock-loop-count">루프: 0</div>
     </div>
 
     <div class="sys-bottom">
