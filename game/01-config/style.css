@@ -277,3 +277,34 @@ html, body {
   background: rgba(0, 0, 0, 0.2);
   transform: scale(0.95);
 }
+
+/* 기본 (0번 인덱스: 첫 번째 스크립트) - 보통 흰색이나 회색 */
+.timeline-cell[data-current-script-idx="0"] .cell-text {
+  color: #cccccc; /* 기존 색상 유지 */
+}
+
+/* 1번 인덱스 (두 번째 스크립트) - 노란색 */
+.timeline-cell[data-current-script-idx="1"] .cell-text {
+  color: #f1c40f; /* 밝은 노랑 */
+  /* text-shadow: 0 0 2px #f1c40f; 약간의 네온 효과를 원하면 주석 해제 */
+}
+
+/* 2번 인덱스 (세 번째 스크립트) - 초록색 */
+.timeline-cell[data-current-script-idx="2"] .cell-text {
+  color: #2ecc71; /* 밝은 초록 */
+}
+
+/* 3번 인덱스 (네 번째 스크립트) - 붉은색 또는 보라색 */
+.timeline-cell[data-current-script-idx="3"] .cell-text {
+  color: #e74c3c; /* 밝은 빨강 */
+}
+
+/* (선택사항) 엔딩 등 4번 인덱스가 있다면 */
+.timeline-cell[data-current-script-idx="4"] .cell-text {
+  color: #9b59b6; /* 보라색 */
+}
+
+/* (선택사항) 색상이 서서히 바뀌게 하려면 트랜지션 추가 */
+.cell-text {
+  transition: color 0.5s ease;
+}
