@@ -17,7 +17,7 @@ html, body {
 /* 전체 레이아웃 */
 .proto-layout {
   display: flex;
-  gap: 24px;
+  /* gap: 24px; */
   height: calc(100vh - 48px);
   max-height: calc(100vh - 48px);
   width: calc(100vw - 48px);
@@ -214,7 +214,6 @@ html, body {
 .speed-control-container {
   margin-top: 15px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 4px;
 }
@@ -307,4 +306,187 @@ html, body {
 /* (선택사항) 색상이 서서히 바뀌게 하려면 트랜지션 추가 */
 .cell-text {
   transition: color 0.5s ease;
+}
+
+/* =========================================
+   [수정됨] 오른쪽 사이드바 (단서 목록) - 미니멀 스타일
+   ========================================= */
+
+   .proto-sidebar {
+    width: 260px; /* 너비 */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    /* 배경색과 테두리를 제거하여 공간감을 넓힘 */
+    background: transparent; 
+    border-left: 1px solid rgba(255, 255, 255, 0.05); /* 아주 연한 구분선 */
+    padding: 0 0 0 20px; /* 왼쪽 여백만 줌 */
+    box-sizing: border-box;
+    z-index: 50;
+  }
+  
+  /* 타이틀을 왼쪽 'PLAY SPEED'와 비슷한 스타일로 변경하여 통일감 부여 */
+  .sidebar-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    font-weight: bold;
+    opacity: 0.5;
+    color: #fff;
+    text-transform: uppercase;
+    margin: 15px 0 15px 0; /* 위치 조정 */
+    padding-bottom: 0;
+    border: none; /* 밑줄 제거 */
+    text-align: left; /* 왼쪽 정렬 */
+  }
+  
+  .clue-list {
+    flex: 0 0 45%;
+    min-height: 100px;
+    /* list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1; */
+    /* 스크롤바 숨김 (깔끔함 유지) */
+    scrollbar-width: none; 
+  }
+  .clue-list::-webkit-scrollbar { display: none; }
+  
+  /* 개별 단서 아이템 - 박스 형태 제거, 텍스트 강조 */
+  .clue-item {
+    position: relative;
+    background: transparent; /* 배경 제거 */
+    /* padding: 6px 0 6px 16px; 텍스트 공간 확보 */
+    /* margin-bottom: 4px; */
+    color: rgba(255, 255, 255, 0.8); /* 약간 부드러운 흰색 */
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    /* border-left: 2px solid rgba(77, 163, 255, 0.3); 은은한 파란색 라인 */
+    margin-right: 10px;
+    transition: all 0.3s ease;
+    cursor: default;
+  }
+  
+  /* 단서에 마우스 올렸을 때 효과 */
+  .clue-item:hover {
+    color: #fff;
+    background: linear-gradient(90deg, rgba(77, 163, 255, 0.1) 0%, transparent 100%); /* 살짝 빛나는 효과 */
+    border-left-color: #4da3ff; /* 라인 밝게 */
+    padding-left: 20px; /* 살짝 오른쪽으로 이동 */
+  }
+  
+  /*  */
+  
+  /* 새로 추가되었을 때 등장 애니메이션 (부드럽게) */
+  @keyframes slideInFade {
+    from { 
+      opacity: 0; 
+      transform: translateX(10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateX(0); 
+    }
+  }
+  
+  .clue-item {
+    animation: slideInFade 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* =========================================
+   [수정됨] 오른쪽 시스템 패널 (Flex Column + Space Between)
+   ========================================= */
+
+.system-panel {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* 상-중-하 배치 */
+  /* border-left: 1px solid rgba(255, 255, 255, 0.08); */
+  /* background: radial-gradient(circle at top right, #111 0%, #05060a 100%); */
+  padding: 30px 0; /* 상하 패딩 */
+  box-sizing: border-box;
+  overflow: hidden; /* 자식 요소가 튀어나가는 것 방지 */
+}
+
+/* 1. 상단: 속도 조절 영역 */
+.sys-top {
+  flex: 0 0 auto; /* 제 크기 유지 */
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* 2. 중앙: 시계 영역 */
+.sys-center {
+  flex: 0 0 auto; /* 제 크기 유지 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0; /* 위아래 최소 간격 확보 */
+}
+
+.clock-time {
+  font-size: 4rem; /* 폰트가 너무 커서 밀리면 여기서 줄이세요 (기존 4.5rem) */
+  font-weight: 200;
+  letter-spacing: -2px;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+}
+.clock-loop-count {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #4da3ff;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* 3. 하단: 단서 목록 영역 (핵심 수정) */
+.sys-bottom {
+  /* ★ 중요: 공간이 모자라면 자동으로 줄어들게 설정 */
+  /* flex: 0 1 45%; 기본 45%를 차지하되, 줄어들 수 있음(shrink: 1) */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 24px;
+  box-sizing: border-box;
+  
+  /* 내부 스크롤을 위해 필수 */
+  min-height: 0; 
+  overflow: hidden; 
+}
+
+/* 단서 타이틀 */
+.sidebar-title {
+  flex: 0 0 auto; /* 타이틀은 크기 고정 */
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: bold;
+  opacity: 0.5;
+  color: #fff;
+  text-transform: uppercase;
+  margin-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 5px;
+}
+
+/* 단서 목록 스크롤 영역 */
+.clue-scroll-area {
+  flex: 1; /* 남은 공간 모두 차지 */
+  overflow-y: auto; /* 내용이 넘치면 여기서 스크롤 */
+  
+  /* 스크롤바 숨김 디자인 */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.clue-scroll-area::-webkit-scrollbar { display: none; }
+
+.clue-list {
+  list-style: none;
+  display: flex;
 }

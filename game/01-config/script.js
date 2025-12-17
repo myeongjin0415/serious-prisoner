@@ -67,10 +67,14 @@ window.initTimeline = function() {
       window.__originalTimelineData = JSON.parse(JSON.stringify(setup.timeline));
   }
 
-  // 2. 타이머/이벤트 정리
+  // ★ [수정 1] 기존 타이머 및 대기 타이머 완전 초기화 (중복 방지 핵심)
   if (window.__scrollTimer) {
       clearInterval(window.__scrollTimer);
       window.__scrollTimer = null;
+  }
+  if (window.__startDelayTimer) {
+      clearTimeout(window.__startDelayTimer);
+      window.__startDelayTimer = null;
   }
   container.onscroll = null; 
 
@@ -79,6 +83,32 @@ window.initTimeline = function() {
     if (loopEl) loopEl.textContent = '루프: ' + window.__timelineLoopCount;
   };
   updateLoopDisplay();
+
+  /* window.initTimeline 함수 내부 */
+
+function renderClues() {
+  const listEl = document.getElementById('clue-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  
+  const uniqueLabels = new Set();
+
+  // 저장된 키 형식: "시간ID|스크립트인덱스|라벨이름"
+  // 여기서 3번째 부분(라벨이름)만 가져옵니다.
+  window.__persistentUnlocks.forEach(key => {
+      const parts = key.split('|');
+      if (parts.length >= 3) {
+          uniqueLabels.add(parts[2]); // "서랍 열기" 같은 이름이 여기 들어있습니다.
+      }
+  });
+
+  uniqueLabels.forEach(label => {
+      const li = document.createElement('li');
+      li.className = 'clue-item';
+      li.textContent = label; // 선택지 이름 그대로 출력
+      listEl.appendChild(li);
+  });
+}
 
   /* 콘텐츠 업데이트 함수 */
   function updateContentByLoop() {
@@ -124,7 +154,7 @@ window.initTimeline = function() {
     
     const timeScriptPair = `${timeIdPattern}\\s*->\\s*\\d+`;
     const multiplePairs = `${timeScriptPair}(?:,\\s*${timeScriptPair})*`;
-    window.__multiplePairsPattern = multiplePairs; // ★ 정규식 패턴 전역 저장 (나중에 재사용)
+    window.__multiplePairsPattern = multiplePairs; 
 
     const triggerTargetPattern = `${timeIdPattern}:\\d+:\\([^\\)]+\\)`;
     const multipleTriggerTargets = `${triggerTargetPattern}(?:,\\s*${triggerTargetPattern})*`;
@@ -187,134 +217,136 @@ window.initTimeline = function() {
     attachClickHandler(); 
   }
 
-  /* 클릭 핸들러 (해금 상태 저장 로직 추가됨) */
-  function attachClickHandler() {
-    const container = document.getElementById('timeline');
-    if (!container) return;
+/* 클릭 핸들러 (선택지 이름 그대로 단서 목록에 추가) */
+function attachClickHandler() {
+  const container = document.getElementById('timeline');
+  if (!container) return;
 
-    container.onclick = function(e) {
-        const trigger = e.target.closest('.timeline-trigger');
-        const activeAction = e.target.closest('.timeline-action.active');
-        const action = activeAction; 
-        const target = trigger || action;
+  container.onclick = function(e) {
+      const trigger = e.target.closest('.timeline-trigger');
+      const activeAction = e.target.closest('.timeline-action.active');
+      const action = activeAction; 
+      const target = trigger || action;
 
-        if (!target) return;
-        e.preventDefault(); e.stopPropagation();
+      if (!target) return;
+      e.preventDefault(); e.stopPropagation();
 
-        // 플래그 획득
-        const flagName = target.getAttribute('data-flag');
-        let flagAcquired = false;
-        if (flagName) {
-            window.__timelineFlags = window.__timelineFlags || new Set();
-            if (!window.__timelineFlags.has(flagName)) {
-                window.__timelineFlags.add(flagName);
-                flagAcquired = true;
-            }
-        }
-        if (flagAcquired) updateContentByLoop();
+      // 1. 플래그 획득 처리
+      const flagName = target.getAttribute('data-flag');
+      let flagAcquired = false;
+      if (flagName) {
+          window.__timelineFlags = window.__timelineFlags || new Set();
+          if (!window.__timelineFlags.has(flagName)) {
+              window.__timelineFlags.add(flagName);
+              flagAcquired = true;
+          }
+      }
+      if (flagAcquired) updateContentByLoop();
 
-        let executionSuccess = false;
+      // 2. 트리거 및 액션 실행
+      let executionSuccess = false;
 
-        if (trigger) {
-            const triggersJson = trigger.getAttribute('data-triggers');
-            if (triggersJson) {
-                try {
-                const targets = JSON.parse(decodeURIComponent(triggersJson));
-                targets.forEach(targetItem => {
-                    const dataItem = setup.timeline.find(item => item.timeId === targetItem.timeId);
-                    if (!dataItem || !dataItem.scripts[targetItem.scriptIdx]) return;
-                    
-                    const targetScript = dataItem.scripts[targetItem.scriptIdx];
-                    const label = targetItem.label;
-                    
-                    // 정규식 패턴 생성 (setupActions와 동일한 로직)
-                    const multiplePairsPattern = window.__multiplePairsPattern || "\\d{2}-\\d{2}\\s*->\\s*\\d+(?:,\\s*\\d{2}-\\d{2}\\s*->\\s*\\d+)*";
-                    const pattern = new RegExp(`\\(${label}:(${multiplePairsPattern})(?:\\s+#([a-zA-Z0-9_가-힣]+))?\\)`);
-                    
-                    const newScript = targetScript.replace(pattern, (match, targetsStr, nextFlag) => {
-                        const flagPart = nextFlag ? ` #${nextFlag}` : '';
-                        return `[${label}:${targetsStr}${flagPart}]`;
-                    });
-                    
-                    if (newScript !== targetScript) {
-                        dataItem.scripts[targetItem.scriptIdx] = newScript;
-                        
-                        // ★★★ [신규] 해금 성공 시, 이 상태를 영구 저장소에 기록 ★★★
-                        // 포맷: "시간ID|스크립트인덱스|라벨명"
-                        const unlockKey = `${targetItem.timeId}|${targetItem.scriptIdx}|${label}`;
-                        window.__persistentUnlocks.add(unlockKey);
+      if (trigger) {
+          // [트리거 로직]
+          const triggersJson = trigger.getAttribute('data-triggers');
+          if (triggersJson) {
+              try {
+              const targets = JSON.parse(decodeURIComponent(triggersJson));
+              targets.forEach(targetItem => {
+                  const dataItem = setup.timeline.find(item => item.timeId === targetItem.timeId);
+                  if (!dataItem || !dataItem.scripts[targetItem.scriptIdx]) return;
+                  
+                  const targetScript = dataItem.scripts[targetItem.scriptIdx];
+                  const label = targetItem.label;
+                  
+                  const multiplePairsPattern = window.__multiplePairsPattern || "\\d{2}-\\d{2}\\s*->\\s*\\d+(?:,\\s*\\d{2}-\\d{2}\\s*->\\s*\\d+)*";
+                  const pattern = new RegExp(`\\(${label}:(${multiplePairsPattern})(?:\\s+#([a-zA-Z0-9_가-힣]+))?\\)`);
+                  
+                  const newScript = targetScript.replace(pattern, (match, targetsStr, nextFlag) => {
+                      const flagPart = nextFlag ? ` #${nextFlag}` : '';
+                      return `[${label}:${targetsStr}${flagPart}]`;
+                  });
+                  
+                  if (newScript !== targetScript) {
+                      dataItem.scripts[targetItem.scriptIdx] = newScript;
+                      
+                      // ★★★ [핵심] 해금된 선택지를 저장하고 목록 갱신 ★★★
+                      const unlockKey = `${targetItem.timeId}|${targetItem.scriptIdx}|${label}`;
+                      window.__persistentUnlocks.add(unlockKey);
+                      renderClues(); // 화면 오른쪽 단서 목록 즉시 업데이트
 
-                        // 화면 갱신
-                        const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetItem.timeId}"]`);
-                        if(targetCell) {
-                            const currentIdx = parseInt(targetCell.getAttribute('data-current-script-idx') || 0);
-                            if (currentIdx === targetItem.scriptIdx) {
-                                targetCell.querySelector('.cell-text').textContent = newScript;
-                            }
-                        }
-                    }
-                });
-                executionSuccess = true;
-                } catch (err) { console.error("Trigger parse error:", err); }
-            }
-        } else if (action) {
-            // ... (기존 액션 로직 동일) ...
-            const targetsJson = target.getAttribute('data-targets');
-            if (targetsJson) {
-                try {
-                const targets = JSON.parse(decodeURIComponent(targetsJson));
-                targets.forEach(targetInfo => {
-                    const dataItem = setup.timeline.find(item => item.timeId === targetInfo.timeId);
-                    if (dataItem && dataItem.scripts[targetInfo.scriptIdx]) {
-                    const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetInfo.timeId}"]`);
-                    if(targetCell) {
-                        targetCell.querySelector('.cell-text').textContent = dataItem.scripts[targetInfo.scriptIdx];
-                        targetCell.setAttribute('data-current-script-idx', targetInfo.scriptIdx);
-                    }
-                    }
-                });
-                executionSuccess = true;
-                } catch (err) { console.error(err); }
-            } else {
-                // 하위 호환성
-                const targetId = target.getAttribute('data-target-id');
-                const scriptIdx = parseInt(target.getAttribute('data-script-idx'), 10);
-                if (targetId && !isNaN(scriptIdx)) {
-                const dataItem = setup.timeline.find(item => item.timeId === targetId);
-                if (dataItem && dataItem.scripts[scriptIdx]) {
-                    const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
-                    if(targetCell) {
-                        targetCell.querySelector('.cell-text').textContent = dataItem.scripts[scriptIdx];
-                        targetCell.setAttribute('data-current-script-idx', scriptIdx);
-                        executionSuccess = true;
-                    }
-                }
-                }
-            }
-        }
+                      const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetItem.timeId}"]`);
+                      if(targetCell) {
+                          const currentIdx = parseInt(targetCell.getAttribute('data-current-script-idx') || 0);
+                          if (currentIdx === targetItem.scriptIdx) {
+                              targetCell.querySelector('.cell-text').textContent = newScript;
+                          }
+                      }
+                  }
+              });
+              executionSuccess = true;
+              } catch (err) { console.error("Trigger parse error:", err); }
+          }
+      } else if (action) {
+          // [액션 로직]
+          const targetsJson = target.getAttribute('data-targets');
+          if (targetsJson) {
+              try {
+              const targets = JSON.parse(decodeURIComponent(targetsJson));
+              targets.forEach(targetInfo => {
+                  const dataItem = setup.timeline.find(item => item.timeId === targetInfo.timeId);
+                  if (dataItem && dataItem.scripts[targetInfo.scriptIdx]) {
+                  const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetInfo.timeId}"]`);
+                  if(targetCell) {
+                      targetCell.querySelector('.cell-text').textContent = dataItem.scripts[targetInfo.scriptIdx];
+                      targetCell.setAttribute('data-current-script-idx', targetInfo.scriptIdx);
+                  }
+                  }
+              });
+              executionSuccess = true;
+              } catch (err) { console.error(err); }
+          } else {
+              const targetId = target.getAttribute('data-target-id');
+              const scriptIdx = parseInt(target.getAttribute('data-script-idx'), 10);
+              if (targetId && !isNaN(scriptIdx)) {
+              const dataItem = setup.timeline.find(item => item.timeId === targetId);
+              if (dataItem && dataItem.scripts[scriptIdx]) {
+                  const targetCell = container.querySelector(`.timeline-cell[data-time-id="${targetId}"]`);
+                  if(targetCell) {
+                      targetCell.querySelector('.cell-text').textContent = dataItem.scripts[scriptIdx];
+                      targetCell.setAttribute('data-current-script-idx', scriptIdx);
+                      executionSuccess = true;
+                  }
+              }
+              }
+          }
+      }
 
-        // 자기 자신 비활성화 (Executed 처리)
-        if (executionSuccess || flagAcquired) {
-            const currentCell = target.closest('.timeline-cell');
-            if (currentCell) {
-                const currentTimeId = currentCell.getAttribute('data-time-id');
-                const currentIdx = parseInt(currentCell.getAttribute('data-current-script-idx') || 0);
-                const currentDataItem = setup.timeline.find(item => item.timeId === currentTimeId);
-                const fullString = target.getAttribute('data-full-string');
-                const labelText = target.textContent;
+      // 3. 실행 성공 시 해당 링크 비활성화 (Executed 처리)
+      if (executionSuccess || flagAcquired) {
+          const currentCell = target.closest('.timeline-cell');
+          if (currentCell) {
+              const currentTimeId = currentCell.getAttribute('data-time-id');
+              const currentIdx = parseInt(currentCell.getAttribute('data-current-script-idx') || 0);
+              const currentDataItem = setup.timeline.find(item => item.timeId === currentTimeId);
+              const fullString = target.getAttribute('data-full-string');
+              const labelText = target.textContent;
 
-                if (currentDataItem && fullString) {
-                    let scriptContent = currentDataItem.scripts[currentIdx];
-                    const disabledHtml = `<span class="timeline-executed">${labelText}</span>`;
-                    currentDataItem.scripts[currentIdx] = scriptContent.replace(fullString, disabledHtml);
-                    currentCell.querySelector('.cell-text').innerHTML = currentDataItem.scripts[currentIdx];
-                    setupActions(); 
-                }
-            }
-        }
-    };
-  }
+              if (currentDataItem && fullString) {
+                  let scriptContent = currentDataItem.scripts[currentIdx];
+                  const disabledHtml = `<span class="timeline-executed">${labelText}</span>`;
+                  currentDataItem.scripts[currentIdx] = scriptContent.replace(fullString, disabledHtml);
+                  currentCell.querySelector('.cell-text').innerHTML = currentDataItem.scripts[currentIdx];
+                  
+                  // 재귀 호출로 바뀐 HTML에 다시 이벤트 핸들러 부착 필요 없음 (상위 위임 방식이면 좋으나 현재 구조상 유지)
+                  setupActions(); 
+              }
+          }
+      }
+  };
+}
   
+  renderClues();
   updateContentByLoop(); 
 
   const handleScroll = window.throttle(() => window.updateClock(cells, container), 100);
@@ -323,7 +355,8 @@ window.initTimeline = function() {
 
   let isAutoScrolling = false;
   
-  setTimeout(() => {
+  // ★ [수정 2] setTimeout의 반환값을 변수에 저장 (나중에 끄기 위함)
+  window.__startDelayTimer = setTimeout(() => {
     isAutoScrolling = true; 
     let preciseScrollTop = container.scrollTop;
     
@@ -334,22 +367,18 @@ window.initTimeline = function() {
         preciseScrollTop = container.scrollTop;
       }
 
-      // ★★★ 바닥 도달 시: 초기화 + 해금 상태 복구 ★★★
       if (container.scrollTop + container.clientHeight >= container.scrollHeight - 5) {
         window.__timelineLoopCount++;
         if (loopEl) loopEl.textContent = '루프: ' + window.__timelineLoopCount;
         
-        // 1. 단서(플래그) 초기화 -> 버튼을 다시 누를 수 있게 됨
         window.__timelineFlags.clear();
 
-        // 2. 원본 데이터 복구 -> 텍스트가 'Executed'에서 다시 '버튼'으로 돌아감
         if (window.__originalTimelineData) {
             setup.timeline.forEach((item, index) => {
                 item.scripts = [...window.__originalTimelineData[index].scripts];
             });
         }
 
-        // 3. ★★★ [신규] 영구 해금된 트리거(Hidden Word) 재적용 ★★★
         if (window.__persistentUnlocks && window.__persistentUnlocks.size > 0) {
             window.__persistentUnlocks.forEach(key => {
                 const [pTimeId, pScriptIdxStr, pLabel] = key.split('|');
@@ -357,7 +386,6 @@ window.initTimeline = function() {
                 
                 const dataItem = setup.timeline.find(item => item.timeId === pTimeId);
                 if (dataItem && dataItem.scripts[pScriptIdx]) {
-                    // 원본은 (라벨:...) 형태이므로 이를 다시 [라벨:...]로 치환
                     let targetScript = dataItem.scripts[pScriptIdx];
                     const multiplePairsPattern = window.__multiplePairsPattern || "\\d{2}-\\d{2}\\s*->\\s*\\d+(?:,\\s*\\d{2}-\\d{2}\\s*->\\s*\\d+)*";
                     const pattern = new RegExp(`\\(${pLabel}:(${multiplePairsPattern})(?:\\s+#([a-zA-Z0-9_가-힣]+))?\\)`);
@@ -371,7 +399,6 @@ window.initTimeline = function() {
             });
         }
 
-        // 4. 화면 리셋 및 갱신
         cells.forEach(cell => {
              cell.setAttribute('data-current-script-idx', '-1');
         });
@@ -380,6 +407,7 @@ window.initTimeline = function() {
         preciseScrollTop = 0;
         
         updateContentByLoop();
+        renderClues(); 
         window.updateClock(cells, container);
         
       } else {
@@ -391,6 +419,10 @@ window.initTimeline = function() {
     setInterval(() => { if (isAutoScrolling) window.updateClock(cells, container); }, 100);
   }, 600);
 };
+
+// SugarCube 로드 대기
+jQuery(document).one(':storyready', function() { setTimeout(window.initTimeline, 100); });
+jQuery(document).on(':passagedisplay', function() { setTimeout(window.initTimeline, 100); });
 
 // SugarCube 로드 대기
 jQuery(document).one(':storyready', function() { setTimeout(window.initTimeline, 100); });

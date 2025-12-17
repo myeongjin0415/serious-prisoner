@@ -6,9 +6,38 @@ Prisoner Prototype
   "ifid": "8F92C1E7-4D3B-4A6F-B917-2C8F5B90D4EA",
   "format": "SugarCube",
   "format-version": "2.36.1",
-  "start": "Start",
+  "start": "TitleScreen",
   "zoom": 1
 }
+
+:: TitleScreen
+<div class="title-container">
+  <div class="main-title-wrapper">
+    <h1 class="game-title fade-in">안락한 나날들</h1>
+  </div>
+  
+  <div class="start-btn-container">
+    <<button "시작하기">>
+      <<script>>
+        /* 게임 시작 전 데이터 완전 초기화 */
+        window.__timelineLoopCount = 0;
+        window.__timelineFlags = new Set();
+        window.__scrollSpeed = 0.6;
+        if(window.__persistentUnlocks) window.__persistentUnlocks.clear();
+        
+        /* 원본 데이터 복구 */
+        if (window.__originalTimelineData) {
+            setup.timeline.forEach((item, index) => {
+                item.scripts = [...window.__originalTimelineData[index].scripts];
+            });
+        }
+        
+        /* 메인 게임 패시지로 이동 */
+        Engine.play("Start");
+      <</script>>
+    <</button>>
+  </div>
+</div>
 
 :: Start
 <<set _timeline = setup.timeline>>
@@ -20,12 +49,10 @@ Prisoner Prototype
     <<for _i = 0; _i < _timeline.length; _i++>>
       <<set _item = _timeline[_i]>>
       <<set _timeStr = setup.formatTime(_item.hour, _item.min)>>
-      
       <div class="timeline-cell" 
            @data-time-id="_item.timeId" 
            @data-minutes="_item.totalMinutes"
            @data-date-text="_item.dateText">
-           
         <div class="cell-time"><<print _timeStr>></div>
         <div class="cell-text"><<print _item.scripts[0]>></div>
       </div>
@@ -34,17 +61,27 @@ Prisoner Prototype
     <<for _i = 0; _i < 15; _i++>><br><</for>>
   </div>
 
-  <div class="proto-clock">
-    <div class="clock-date" id="clock-date">12월 2일</div>
-    <div class="clock-time" id="clock-time">08:00</div>
-    <div class="clock-loop-count" id="clock-loop-count">루프: 0</div>
-    <div class="speed-control-container">
-      <div class="speed-label">PLAY SPEED</div>
-      <div class="speed-capsule">
-        <button class="speed-btn" onclick="window.adjustSpeed(-0.1)">−</button>
-        <span id="speed-value" class="speed-display">0.6</span>
-        <button class="speed-btn" onclick="window.adjustSpeed(0.1)">+</button>
+  <div class="system-panel">
+  
+    <div class="sys-top">
+      <div class="speed-control-container">
+        <div class="speed-label">PLAY SPEED</div>
+        <div class="speed-capsule">
+          <button class="speed-btn" onclick="window.adjustSpeed(-0.1)">−</button>
+          <span id="speed-value" class="speed-display">0.6</span>
+          <button class="speed-btn" onclick="window.adjustSpeed(0.1)">+</button>
+        </div>
       </div>
     </div>
-  </div>
-</div>
+
+    <div class="sys-center">
+      <div class="clock-time" id="clock-time">08:00</div>
+      <div class="clock-loop-count" id="clock-loop-count">루프: 0</div>
+    </div>
+
+    <div class="sys-bottom">
+      <ul class="clue-list" id="clue-list">
+      </ul>
+    </div>
+    
+  </div> </div>
