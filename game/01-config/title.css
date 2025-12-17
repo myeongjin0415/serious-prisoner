@@ -1,0 +1,51 @@
+/* 타이틀 화면 전체 컨테이너 */
+.title-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column; /* 위에서 아래로 배치 */
+  justify-content: center; /* 중앙 정렬 */
+  align-items: center;
+  background-color: #111; /* 배경색 */
+  z-index: 1000;
+}
+
+/* 타이틀 이미지 스타일 */
+.title-image {
+  max-width: 80%;   /* 화면 너비의 80%를 넘지 않음 */
+  max-height: 60vh; /* 화면 높이의 60%를 넘지 않음 */
+  width: auto;
+  height: auto;
+  margin-bottom: 40px; /* 버튼과의 간격 */
+  border-radius: 10px; /* (선택) 모서리 둥글게 */
+  box-shadow: 0 0 20px rgba(0,0,0,0.5); /* (선택) 그림자 효과 */
+  object-fit: contain;
+}
+
+/* 시작 버튼 컨테이너 */
+.start-btn-container {
+  display: flex;
+  justify-content: center;
+}
+
+/* 버튼 스타일 (기존 유지) */
+.title-container button {
+  background: transparent;
+  border: 1px solid #fff;
+  color: #fff;
+  padding: 15px 40px;
+  font-size: 1.2em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.title-container button:hover {
+  background: #fff;
+  color: #000;
+  box-shadow: 0 0 15px rgba(255,255,255,0.8);
+}

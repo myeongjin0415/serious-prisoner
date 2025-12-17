@@ -1,3 +1,15 @@
+/* [새로고침 초기화] 페이지를 떠나거나 새로고침 할 때 세션 정보를 삭제 */
+window.onbeforeunload = function() {
+  // SugarCube가 현재 진행 상황을 저장해둔 세션 스토리지(임시 저장소)를 비웁니다.
+  // 이렇게 하면 다시 로드될 때 불러올 기록이 없어서 StoryData에 설정된 Start 패시지로 이동합니다.
+  sessionStorage.clear();
+};
+
+/* [선택사항] 게임 도중 '뒤로 가기' 화살표 제거 및 되돌리기 기능 비활성화 */
+// 루프물이나 아케이드 게임에서는 뒤로가기가 버그를 유발할 수 있어 끄는 것을 추천합니다.
+Config.history.controls = false; 
+Config.history.maxStates = 1;
+
 // 전역 변수 초기화
 window.__timelineLoopCount = window.__timelineLoopCount || 0;
 window.__timelineFlags = new Set(); 
